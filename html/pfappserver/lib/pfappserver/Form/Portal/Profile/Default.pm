@@ -37,6 +37,14 @@ has_field 'logo' =>
    label => 'Logo',
    required => 1,
   );
+has_field 'authentication_sources' =>
+  (
+    'type' => 'Select',
+    'label' => 'Authentication',
+    'multiple'=> 1,
+    'element_class' => ['chzn-select', 'input-xlarge'],
+    'element_attr' => {'data-placeholder' => 'Click to add'},
+  );
 has_field 'guest_self_reg' =>
   (
    type => 'Toggle',
@@ -71,6 +79,18 @@ sub options_guest_modes {
 
     my $types = availableAuthenticationSourceTypes('external');
     return map { { value => lc $_, label => $_ } } @$types;
+}
+
+=head2 options_authentication_sources
+
+=cut
+
+sub options_authentication_sources {
+    my $self = shift;
+
+    my $types = getAuthenticationSource();
+    #my $types = availableAuthenticationSourceTypes('internal');
+    return map { { value => lc $_->{'description'}, label => $_->{'description'} } } grep { $_->{'class'} eq 'internal' } @$types;
 }
 
 =head1 COPYRIGHT

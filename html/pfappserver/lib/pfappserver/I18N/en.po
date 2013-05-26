@@ -702,6 +702,14 @@ msgstr "Username"
 msgid "webservices.pass"
 msgstr "Password"
 
+#: conf/pf.conf.defaults:685
+msgid "wispr"
+msgstr "Wispr"
+
+#: conf/pf.conf.defaults:686
+msgid "wispr.authentication_sources"
+msgstr "Authentication Sources"
+
 # html/pfappserver/root/admin/configuration.tt
 
 msgid "fingerprints"

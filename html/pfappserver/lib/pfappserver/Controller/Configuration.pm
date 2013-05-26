@@ -57,6 +57,7 @@ our %ALLOWED_SECTIONS = (
     advanced => undef,
     provisioning => undef,
     webservices => undef,
+    wispr => undef,
 );
 
 

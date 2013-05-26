@@ -94,6 +94,7 @@ table.sources {
               <!--[% list_entry( 'node_import') %]-->
               [% list_entry('Portal::Profile', 'index', 'Portal Profiles and Pages') %]
               [% pf_section_entry( 'webservices', 'Web Services') %]
+              [% pf_section_entry( 'wispr', 'Wispr') %]
               <li class="nav-header">[% l('Network') %]<li>
               [% pf_section_entry( 'interfaces', 'Interfaces') %]
               [% pf_section_entry( 'switches', 'Switches') %]

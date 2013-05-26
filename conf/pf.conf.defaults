@@ -682,3 +682,5 @@ voip=no
 user = 
 pass =
 
+[wispr]
+authentication_sources=
