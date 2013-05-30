@@ -30,6 +30,7 @@ use pf::web;
 use pf::web::billing 1.00;
 # called last to allow redefinitions
 use pf::web::custom;
+use Data::Dumper;
 
 Log::Log4perl->init("$conf_dir/log.conf");
 my $logger = Log::Log4perl->get_logger('redir.cgi');
@@ -38,14 +39,25 @@ Log::Log4perl::MDC->put('tid', 0);
 
 my $portalSession = pf::Portal::Session->new();
 
+
 # we need a valid MAC to identify a node
 if (!valid_mac($portalSession->getClientMac())) {
-  $logger->info($portalSession->getClientIp() . " not resolvable, generating error page");
+    $logger->info($portalSession->getClientIp() . " not resolvable, generating error page");
+    pf::web::generate_error_page($portalSession, i18n("error: not found in the database"));
+    exit(0);
+}
+
+my $mac = $portalSession->getClientMac();
+$logger->info("$mac being redirected");
+
+# we need a valid MAC to identify a node
+if (!valid_mac($mac)) {
+  $logger->info($portalSession->cgi->param('ip') . " not resolvable, generating error page");
   pf::web::generate_error_page($portalSession, i18n("error: not found in the database"));
   exit(0);
 }
 
-my $mac = $portalSession->getClientMac();
+#my $mac = $portalSession->getClientMac();
 $logger->info("$mac being redirected");
 
 # recording user agent for this mac in node table
@@ -189,3 +201,4 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
 USA.            
                 
 =cut
+
