@@ -220,6 +220,56 @@ sub _deauthenticateMacWithSSH {
     return 1;
 }
 
+=item _deauthenticateMacWithSOAP
+
+Method to deauthenticate a MAC with a SOAP Call.
+Requires the SOAP API to be enabled on the MSM controller.
+
+=cut
+
+sub _deauthenticateMacWithSOAP {
+    my ( $this, $mac ) = @_;
+    my $logger = Log::Log4perl::get_logger( ref($this) );
+
+    use WWW::Curl::Easy;
+
+    $soap_port = 448; 
+    my $postdata 
+        = qq(<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns="http://www.procurve_mobility_msm.com/SOAP/API/1.7/">
+       <soapenv:Header/>
+       <soapenv:Body>
+          <ns:ExecuteControlledWirelessDisassociateClient>
+             <ns:macAddress>$mac</ns:macAddress>
+          </ns:ExecuteControlledWirelessDisassociateClient>
+       </soapenv:Body>
+    </soapenv:Envelope>
+    );
+
+    my $curl = WWW::Curl::Easy->new;
+    my $response_body = '';
+    open(my $fileb, ">", \$response_body);
+    $curl->setopt(CURLOPT_WRITEDATA,$fileb);
+    $curl->setopt(CURLOPT_HEADER, 1);
+    $curl->setopt(CURLOPT_URL, $this->{'_wsTransport'} . '://' . $this->{'_ip'} . ':' .  $soap_port);
+    $curl->setopt(CURLOPT_POSTFIELDS, $postdata);
+
+    
+    my $curl_return_code = $curl->perform;
+
+    if ( $curl_return_code != 0 ) { 
+        $logger->warn("Deauthentication failed for mac $mac on controller $this->{'_ip'}");
+        $logger->debug("$response_body");
+        return 0;
+    } 
+    else {
+        $logger->info("Device $mac deauthenticated on controller $this->{'_ip'} ");
+        return $curl_return_code;
+    }
+
+
+}
+
+
 =item deauthTechniques
 
 Return the reference to the deauth technique or the default deauth technique.
@@ -233,6 +283,7 @@ sub deauthTechniques {
     my %tech = (
         $SNMP::SNMP => 'deauthenticateMacDefault',
         $SNMP::SSH  => '_deauthenticateMacWithSSH',
+        $SNMP::SOAP => '_deauthenticateMacWithSOAP',
     );
 
     if (!defined($method) || !defined($tech{$method})) {
