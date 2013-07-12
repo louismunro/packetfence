@@ -245,10 +245,10 @@ sub _deauthenticateMacWithSOAP {
 
     my $soap_port = $this->{'_wsPort'} || 448; 
     my $ip = $this->{'_controllerIp'} // $this->{'_ip'};
-
     if ( $this->{'_wsUser'} and $this->{'_wsPwd'} ) { 
         my $authentication = $this->{'_wsUser'} . ':' . $this->{'_wsPwd'} . '@';
     }
+    my $url = $this->{'_wsTransport'} .  $authentication . '://' . $ip . ':' .  $soap_port;
 
     use WWW::Curl::Easy;
     my $curl = WWW::Curl::Easy->new;
@@ -256,19 +256,18 @@ sub _deauthenticateMacWithSOAP {
     open(my $fileb, ">", \$response_body);
     $curl->setopt(CURLOPT_WRITEDATA,$fileb);
     $curl->setopt(CURLOPT_HEADER, 1);
-    $curl->setopt(CURLOPT_URL, $this->{'_wsTransport'} . 
-        $authentication . '://' . $this->{'_ip'} . ':' .  $soap_port);
+    $curl->setopt(CURLOPT_URL, $url );
     $curl->setopt(CURLOPT_POSTFIELDS, $postdata);
     
     my $curl_return_code = $curl->perform;
 
     if ( $curl_return_code != 0 ) { 
-        $logger->warn("Deauthentication failed for mac $mac on controller $ip;
+        $logger->warn("Deauthentication failed for mac $mac on $url");
         $logger->debug("$response_body");
         return 0;
     } 
     else {
-        $logger->info("Device $mac deauthenticated on controller $ip;
+        $logger->info("Device $mac deauthenticated on $url");
         return $curl_return_code;
     }
 
@@ -288,7 +287,8 @@ sub deauthTechniques {
     my %tech = (
         $SNMP::SNMP => 'deauthenticateMacDefault',
         $SNMP::SSH  => '_deauthenticateMacWithSSH',
-        $SNMP::SOAP => '_deauthenticateMacWithSOAP',
+        $SNMP::HTTP =>  '_deauthenticateMacWithSOAP',
+        $SNMP::HTTPS =>  '_deauthenticateMacWithSOAP',
     );
 
     if (!defined($method) || !defined($tech{$method})) {
