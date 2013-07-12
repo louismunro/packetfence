@@ -231,9 +231,7 @@ sub _deauthenticateMacWithSOAP {
     my ( $this, $mac ) = @_;
     my $logger = Log::Log4perl::get_logger( ref($this) );
 
-    use WWW::Curl::Easy;
 
-    $soap_port = 448; 
     my $postdata 
         = qq(<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns="http://www.procurve_mobility_msm.com/SOAP/API/1.7/">
        <soapenv:Header/>
@@ -245,27 +243,34 @@ sub _deauthenticateMacWithSOAP {
     </soapenv:Envelope>
     );
 
+    my $soap_port = $this->{'_wsPort'} || 448; 
+    my $ip = $this->{'_controllerIp'} // $this->{'_ip'};
+
+    if ( $this->{'_wsUser'} and $this->{'_wsPwd'} ) { 
+        my $authentication = $this->{'_wsUser'} . ':' . $this->{'_wsPwd'} . '@';
+    }
+
+    use WWW::Curl::Easy;
     my $curl = WWW::Curl::Easy->new;
     my $response_body = '';
     open(my $fileb, ">", \$response_body);
     $curl->setopt(CURLOPT_WRITEDATA,$fileb);
     $curl->setopt(CURLOPT_HEADER, 1);
-    $curl->setopt(CURLOPT_URL, $this->{'_wsTransport'} . '://' . $this->{'_ip'} . ':' .  $soap_port);
+    $curl->setopt(CURLOPT_URL, $this->{'_wsTransport'} . 
+        $authentication . '://' . $this->{'_ip'} . ':' .  $soap_port);
     $curl->setopt(CURLOPT_POSTFIELDS, $postdata);
-
     
     my $curl_return_code = $curl->perform;
 
     if ( $curl_return_code != 0 ) { 
-        $logger->warn("Deauthentication failed for mac $mac on controller $this->{'_ip'}");
+        $logger->warn("Deauthentication failed for mac $mac on controller $ip;
         $logger->debug("$response_body");
         return 0;
     } 
     else {
-        $logger->info("Device $mac deauthenticated on controller $this->{'_ip'} ");
+        $logger->info("Device $mac deauthenticated on controller $ip;
         return $curl_return_code;
     }
-
 
 }
 
