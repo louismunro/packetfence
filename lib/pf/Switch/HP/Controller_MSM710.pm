@@ -230,6 +230,7 @@ Requires the SOAP API to be enabled on the MSM controller.
 sub _deauthenticateMacWithSOAP {
     my ( $this, $mac ) = @_;
     my $logger = Log::Log4perl::get_logger( ref($this) );
+    $logger->info("Deauthenticating $mac with SOAP call");
 
 
     my $postdata 
@@ -245,19 +246,20 @@ sub _deauthenticateMacWithSOAP {
 
     my $soap_port = $this->{'_wsPort'} || 448; 
     my $ip = $this->{'_controllerIp'} // $this->{'_ip'};
+    my $authentication = '';
     if ( $this->{'_wsUser'} and $this->{'_wsPwd'} ) { 
-        my $authentication = $this->{'_wsUser'} . ':' . $this->{'_wsPwd'} . '@';
+        $authentication = $this->{'_wsUser'} . ':' . $this->{'_wsPwd'} . '@';
     }
-    my $url = $this->{'_wsTransport'} .  $authentication . '://' . $ip . ':' .  $soap_port;
+    my $url = $this->{'_wsTransport'} . '://' .  $authentication . $ip . ':' .  $soap_port;
 
     use WWW::Curl::Easy;
     my $curl = WWW::Curl::Easy->new;
     my $response_body = '';
     open(my $fileb, ">", \$response_body);
-    $curl->setopt(CURLOPT_WRITEDATA,$fileb);
-    $curl->setopt(CURLOPT_HEADER, 1);
     $curl->setopt(CURLOPT_URL, $url );
+    $curl->setopt(CURLOPT_HEADER, 1);
     $curl->setopt(CURLOPT_POSTFIELDS, $postdata);
+    $curl->setopt(CURLOPT_WRITEDATA,$fileb);
     
     my $curl_return_code = $curl->perform;
 
