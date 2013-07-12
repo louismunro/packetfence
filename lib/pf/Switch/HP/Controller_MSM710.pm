@@ -244,7 +244,8 @@ sub _deauthenticateMacWithSOAP {
     </soapenv:Envelope>
     );
 
-    my $soap_port = $this->{'_wsPort'} || 448; 
+    my $HP_default_port = 448;
+    my $soap_port = $this->{'_wsPort'} || $HP_default_port; 
     my $ip = $this->{'_controllerIp'} // $this->{'_ip'};
     my $authentication = '';
     if ( $this->{'_wsUser'} and $this->{'_wsPwd'} ) { 
@@ -257,6 +258,7 @@ sub _deauthenticateMacWithSOAP {
     my $response_body = '';
     open(my $fileb, ">", \$response_body);
     $curl->setopt(CURLOPT_URL, $url );
+    $curl->setopt(CURLOPT_SSL_VERIFYPEER, 0) if $this->{'_wsTransport'} eq 'https'; # do not validate MSM certificate
     $curl->setopt(CURLOPT_HEADER, 1);
     $curl->setopt(CURLOPT_POSTFIELDS, $postdata);
     $curl->setopt(CURLOPT_WRITEDATA,$fileb);
@@ -265,6 +267,7 @@ sub _deauthenticateMacWithSOAP {
 
     if ( $curl_return_code != 0 ) { 
         $logger->warn("Deauthentication failed for mac $mac on $url");
+        $logger->warn("Check controller-side logs for details or increase log level.");
         $logger->debug("$response_body");
         return 0;
     } 
