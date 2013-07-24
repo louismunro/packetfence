@@ -38,153 +38,6 @@ sub description { 'HP ProCurve MSM710 Mobility Cluster' }
 
 =cut
 
-sub new {
-    my ( $class, %argv ) = @_;
-    my $this = bless {
-        '_error'                    => undef,
-        '_ip'                       => undef,
-        '_macSearchesMaxNb'         => undef,
-        '_macSearchesSleepInterval' => undef,
-        '_mode'                     => undef,
-        '_sessionRead'              => undef,
-        '_sessionWrite'             => undef,
-        '_sessionControllerWrite'   => undef,
-        '_SNMPAuthPasswordRead'     => undef,
-        '_SNMPAuthPasswordTrap'     => undef,
-        '_SNMPAuthPasswordWrite'    => undef,
-        '_SNMPAuthProtocolRead'     => undef,
-        '_SNMPAuthProtocolTrap'     => undef,
-        '_SNMPAuthProtocolWrite'    => undef,
-        '_SNMPCommunityRead'        => undef,
-        '_SNMPCommunityTrap'        => undef,
-        '_SNMPCommunityWrite'       => undef,
-        '_SNMPEngineID'             => undef,
-        '_SNMPPrivPasswordRead'     => undef,
-        '_SNMPPrivPasswordTrap'     => undef,
-        '_SNMPPrivPasswordWrite'    => undef,
-        '_SNMPPrivProtocolRead'     => undef,
-        '_SNMPPrivProtocolTrap'     => undef,
-        '_SNMPPrivProtocolWrite'    => undef,
-        '_SNMPUserNameRead'         => undef,
-        '_SNMPUserNameTrap'         => undef,
-        '_SNMPUserNameWrite'        => undef,
-        '_SNMPVersion'              => 1,
-        '_SNMPVersionTrap'          => 1,
-        '_cliEnablePwd'             => undef,
-        '_cliPwd'                   => undef,
-        '_cliUser'                  => undef,
-        '_cliTransport'             => undef,
-        '_wsPwd'                    => undef,
-        '_wsUser'                   => undef,
-        '_wsTransport'              => undef,
-        '_radiusSecret'             => undef,
-        '_controllerIp'             => undef,
-        '_uplink'                   => undef,
-        '_vlans'                    => undef,
-        '_VoIPEnabled'              => undef,
-        '_roles'                    => undef,
-        '_inlineTrigger'            => undef,
-        '_deauthMethod'             => undef,
-    }, $class;
-
-    foreach ( keys %argv ) {
-        if (/^-?SNMPCommunityRead$/i) {
-            $this->{_SNMPCommunityRead} = $argv{$_};
-        } elsif (/^-?SNMPCommunityTrap$/i) {
-            $this->{_SNMPCommunityTrap} = $argv{$_};
-        } elsif (/^-?SNMPCommunityWrite$/i) {
-            $this->{_SNMPCommunityWrite} = $argv{$_};
-        } elsif (/^-?ip$/i) {
-            $this->{_ip} = $argv{$_};
-        } elsif (/^-?macSearchesMaxNb$/i) {
-            $this->{_macSearchesMaxNb} = $argv{$_};
-        } elsif (/^-?macSearchesSleepInterval$/i) {
-            $this->{_macSearchesSleepInterval} = $argv{$_};
-        } elsif (/^-?mode$/i) {
-            $this->{_mode} = $argv{$_};
-        } elsif (/^-?SNMPAuthPasswordRead$/i) {
-            $this->{_SNMPAuthPasswordRead} = $argv{$_};
-        } elsif (/^-?SNMPAuthPasswordTrap$/i) {
-            $this->{_SNMPAuthPasswordTrap} = $argv{$_};
-        } elsif (/^-?SNMPAuthPasswordWrite$/i) {
-            $this->{_SNMPAuthPasswordWrite} = $argv{$_};
-        } elsif (/^-?SNMPAuthProtocolRead$/i) {
-            $this->{_SNMPAuthProtocolRead} = $argv{$_};
-        } elsif (/^-?SNMPAuthProtocolTrap$/i) {
-            $this->{_SNMPAuthProtocolTrap} = $argv{$_};
-        } elsif (/^-?SNMPAuthProtocolWrite$/i) {
-            $this->{_SNMPAuthProtocolWrite} = $argv{$_};
-        } elsif (/^-?SNMPPrivPasswordRead$/i) {
-            $this->{_SNMPPrivPasswordRead} = $argv{$_};
-        } elsif (/^-?SNMPPrivPasswordTrap$/i) {
-            $this->{_SNMPPrivPasswordTrap} = $argv{$_};
-        } elsif (/^-?SNMPPrivPasswordWrite$/i) {
-            $this->{_SNMPPrivPasswordWrite} = $argv{$_};
-        } elsif (/^-?SNMPPrivProtocolRead$/i) {
-            $this->{_SNMPPrivProtocolRead} = $argv{$_};
-        } elsif (/^-?SNMPPrivProtocolTrap$/i) {
-            $this->{_SNMPPrivProtocolTrap} = $argv{$_};
-        } elsif (/^-?SNMPPrivProtocolWrite$/i) {
-            $this->{_SNMPPrivProtocolWrite} = $argv{$_};
-        } elsif (/^-?SNMPUserNameRead$/i) {
-            $this->{_SNMPUserNameRead} = $argv{$_};
-        } elsif (/^-?SNMPUserNameTrap$/i) {
-            $this->{_SNMPUserNameTrap} = $argv{$_};
-        } elsif (/^-?SNMPUserNameWrite$/i) {
-            $this->{_SNMPUserNameWrite} = $argv{$_};
-        } elsif (/^-?cliEnablePwd$/i) {
-            $this->{_cliEnablePwd} = $argv{$_};
-        } elsif (/^-?cliPwd$/i) {
-            $this->{_cliPwd} = $argv{$_};
-        } elsif (/^-?cliUser$/i) {
-            $this->{_cliUser} = $argv{$_};
-        } elsif (/^-?cliTransport$/i) {
-            $this->{_cliTransport} = $argv{$_};
-        } elsif (/^-?wsPwd$/i) {
-            $this->{_wsPwd} = $argv{$_};
-        } elsif (/^-?wsUser$/i) {
-            $this->{_wsUser} = $argv{$_};
-        } elsif (/^-?wsTransport$/i) {
-            $this->{_wsTransport} = lc($argv{$_});
-        } elsif (/^-?radiusSecret$/i) {
-            $this->{_radiusSecret} = $argv{$_};
-        } elsif (/^-?controllerIp$/i) {
-            $this->{_controllerIp} = $argv{$_}? lc($argv{$_}) : undef;
-        } elsif (/^-?uplink$/i) {
-            $this->{_uplink} = $argv{$_};
-        } elsif (/^-?SNMPEngineID$/i) {
-            $this->{_SNMPEngineID} = $argv{$_};
-        } elsif (/^-?SNMPVersion$/i) {
-            $this->{_SNMPVersion} = $argv{$_};
-        } elsif (/^-?SNMPVersionTrap$/i) {
-            $this->{_SNMPVersionTrap} = $argv{$_};
-        } elsif (/^-?vlans$/i) {
-            $this->{_vlans} = $argv{$_};
-        } elsif (/^-?VoIPEnabled$/i) {
-            $this->{_VoIPEnabled} = $argv{$_};
-        } elsif (/^-?roles$/i) {
-            $this->{_roles} = $argv{$_};
-        } elsif (/^-?inlineTrigger$/i) {
-            $this->{_inlineTrigger} = $argv{$_};
-        } elsif (/^-?deauthMethod$/i) {
-            $this->{_deauthMethod} = $argv{$_};
-        } elsif (/^-?controllers$/i) {
-            $this->{_controllers} = $argv{$_};
-        }
-        # customVlan members are now dynamically generated. 0 to 99 supported.
-        elsif (/^-?(\w+)Vlan$/i) {
-            $this->{'_'.$1.'Vlan'} = $argv{$_};
-        }
-
-    }
-
-    use Data::Dumper;
-    my $logger = Log::Log4perl::get_logger( ref($this) );
-    $logger->info("Dumping Cluster config");
-    $logger->($this);
-    return $this;
-
-}
 
 =item _deauthenticateMacWithSOAP
 
@@ -212,7 +65,12 @@ sub _deauthenticateMacWithSOAP {
 
     my $HP_default_port = 448;
     my $soap_port = $this->{'_wsPort'} || $HP_default_port; 
-    my @IPs = split '/,/', $this->{'_controllers'} ; # comma separated list of IPs
+    my @IPs = @{ $this->{'_cluster_ips'} };
+    unless ( scalar @IPs > 0 ) {
+        $logger->error("cluster_ips is invalid. Check your configuration in switches.conf");
+        return 0;
+    }
+
     my $authentication = '';
     if ( $this->{'_wsUser'} and $this->{'_wsPwd'} ) { 
         $authentication = $this->{'_wsUser'} . ':' . $this->{'_wsPwd'} . '@';
