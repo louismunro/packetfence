@@ -77,7 +77,7 @@ sub _deauthenticateMacWithSOAP {
     }
 
     use WWW::Curl::Easy;
-    my $curl_return_code;
+    my ( $curl_return_code, $curl_info );
 
     # until there is a way to find out on which controller a device associated, we have to 
     # try every controller in turn until we find one that returns an http 200. 
@@ -97,12 +97,12 @@ sub _deauthenticateMacWithSOAP {
         $curl->setopt(CURLOPT_WRITEDATA,$fileb);
         
         $curl_return_code = $curl->perform;
+        $curl_info = $curl->getinfo(CURLINFO_HTTP_CODE); # or CURLINFO_RESPONSE_CODE depending on libcurl version
 
-        if ( $curl_return_code != 0 ) { 
+        if ( $curl_return_code != 0 or $curl_info != 200 ) { 
             $logger->debug("Deauthentication failed for mac $mac on $url");
             $logger->debug("This is probably normal on a cluster.");
             $logger->debug("$response_body");
-            return 0;
         } 
         else {
             $logger->info("Device $mac deauthenticated on $url");
