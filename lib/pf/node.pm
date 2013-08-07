@@ -67,6 +67,7 @@ BEGIN {
         node_mac_wakeup
         is_node_voip
         is_node_registered
+        is_node_auto_registered
         is_max_reg_nodes_reached
         node_search
         $STATUS_REGISTERED
@@ -1020,6 +1021,30 @@ sub is_node_registered {
     $logger->trace("Asked whether node $mac is registered or not");
     my $node_info = node_attributes($mac);
     if ($node_info->{'status'} eq $STATUS_REGISTERED) {
+        return $TRUE;
+    } else {
+        return $FALSE;
+    }
+}
+
+=item * is_node_auto_registered
+
+Was given MAC auto-registered or not?
+
+in: mac address
+
+=cut
+# This relies on the presence of the AUTO-REGISTERED note for the node
+# and as such is brittle. Use appropriate care. 
+# We should probably add a column to the db to indicate auto-registration.
+sub is_node_auto_registered {
+    my ($mac) = @_;
+    my $logger = Log::Log4perl::get_logger(__PACKAGE__);
+
+    $logger->trace("Asked whether node $mac is auto registered or not");
+    my $node_info = node_attributes($mac);
+    if ($node_info->{'status'} eq $STATUS_REGISTERED and 
+        $node_info->{'notes'} =~ /AUTO-REGISTERED/) {
         return $TRUE;
     } else {
         return $FALSE;

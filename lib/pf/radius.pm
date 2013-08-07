@@ -153,6 +153,16 @@ sub authorize {
         return [ $RADIUS::RLM_MODULE_OK, ('Reply-Message' => "Switch is not in production, so we allow this request") ];
     }
 
+    # do not allow auto registered nodes on a MAC-AUTH SSID without reregistration.
+    if ( ( $connection_type & $WIRED_MAC_AUTH )    == $WIRED_MAC_AUTH  or 
+         ( $connection_type & $WIRELESS_MAC_AUTH ) == $WIRELESS_MAC_AUTH ) {
+
+        if ( is_node_auto_registered $mac ) { 
+            node_modify( $mac, ( status => 'unreg', notes => '' ));
+        }
+    }
+
+
     # Fetch VLAN depending on node status
     my ($vlan, $wasInline) = $vlan_obj->fetchVlanForNode($mac, $switch, $port, $connection_type, $user_name, $ssid);
 

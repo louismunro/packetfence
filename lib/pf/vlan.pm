@@ -408,6 +408,36 @@ sub getNodeInfoForAutoReg {
         auto_registered => 1, # tells node_register to autoreg
     );
 
+    # get the role and unreg date
+    my ( $role, $value );
+    if (defined $user_name && (($conn_type & $EAP) == $EAP)) {
+        my $params =
+          {
+           username => $user_name,
+           connection_type => connection_type_to_str($conn_type),
+           SSID => $ssid,
+          };
+        $role = &pf::authentication::match(undef, $params, $Actions::SET_ROLE);
+        $logger->debug("Username was defined ($user_name) - got role $role");
+        $node_info{'category'} = $role if defined $role;
+
+        # If an access duration is defined, use it to compute the unregistration date;
+        # otherwise, use the unregdate when defined.
+        $value = &pf::authentication::match( undef, $params, $Actions::SET_ACCESS_DURATION);
+        if (defined $value) {
+            $value = POSIX::strftime("%Y-%m-%d %H:%M:%S", localtime(time + normalize_time($value)));
+            $logger->debug("Computed unreg date from access duration: $value");
+        }
+        else {
+            $value = &pf::authentication::match( undef, $params, $Actions::SET_UNREG_DATE);
+        }
+        if (defined $value) {
+            $logger->debug("Got unregdate $value for username $user_name");
+            $node_info{'unregdate'} = $value;
+        }
+    }
+
+
     # if we are called from a violation with action=autoreg, say so
     if (defined($violation_autoreg) && $violation_autoreg) {
         $node_info{'notes'} = 'AUTO-REGISTERED by violation';
