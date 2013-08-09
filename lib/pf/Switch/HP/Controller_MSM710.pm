@@ -264,8 +264,9 @@ sub _deauthenticateMacWithSOAP {
     $curl->setopt(CURLOPT_WRITEDATA,$fileb);
     
     my $curl_return_code = $curl->perform;
+    my $curl_info = $curl->getinfo(CURLINFO_HTTP_CODE); # or CURLINFO_RESPONSE_CODE depending on libcurl version
 
-    if ( $curl_return_code != 0 ) { 
+    if ( $curl_return_code != 0 or $curl_info != 200 ) { 
         $logger->warn("Deauthentication failed for mac $mac on $url");
         $logger->warn("Check controller-side logs for details or increase log level.");
         $logger->debug("$response_body");
