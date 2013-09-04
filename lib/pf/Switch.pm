@@ -2973,7 +2973,6 @@ sub _identifyConnectionType {
     }
 }
 
-
 =back
 
 =head1 AUTHOR
