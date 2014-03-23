@@ -134,8 +134,8 @@ sub _vlan_reevaluation {
                     if ( ( $switchdeauthMethod eq $SNMP::SSH ) || ( $switchdeauthMethod eq $SNMP::TELNET ) ) {
                         # we spawn a shell to workaround a thread safety bug in Net::Appliance::Session when using SSH transport
                         # http://www.cpanforum.com/threads/6909
-                        $logger->debug( "calling pfcmd_vlan -deauthenticateDot1x -switch $switchId -mac $mac";
-                        pf_run("/usr/local/pf/bin/pfcmd_vlan -deauthenticateDot1x -switch $switchId -mac $mac");
+                        $logger->debug( "calling pfcmd_vlan -deauthenticateDot1x -switch $switch_id -mac $mac";
+                        pf_run("/usr/local/pf/bin/pfcmd_vlan -deauthenticateDot1x -switch $switch_id -mac $mac");
                     }
                     else {
                         $logger->debug( "calling desAssociate mac $mac on switch $switch"
