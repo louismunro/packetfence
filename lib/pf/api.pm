@@ -97,6 +97,44 @@ sub update_iplog {
 
     return (pf::iplog::iplog_update($srcmac, $srcip, $lease_length));
 }
+
+sub ReAssignVlan {
+    my ($class, %postdata )  = @_;
+    my $logger = Log::Log4perl->get_logger('pf::WebAPI');
+    use Data::Dumper; $logger->warn("Dumping my args: ". \@_);
+
+    my $switch = pf::SwitchFactory->getInstance()->instantiate( $postdata{'switch'} );
+
+    if ( defined( $postdata{'connection_type'} )
+        && ( $postdata{'connection_type'} == $WIRED_802_1X || $postdata{'connection_type'} == $WIRED_MAC_AUTH ) )
+    {
+        my ( $switchdeauthMethod, $deauthTechniques )
+            = $switch->wiredeauthTechniques( $switch->{_deauthMethod}, $info->{'connection_type'} );
+        $deauthTechniques->( $postdata{'switch'}, $postdata{'ifIndex'}, $postdata{'mac'} );
+    }
+}
+
+sub desAssociate {
+    my ($class, %postdata )  = @_;
+    my $logger = Log::Log4perl->get_logger('pf::WebAPI');
+    use Data::Dumper; $logger->warn("Dumping my args: ". \@_);
+
+    my $switch = pf::SwitchFactory->getInstance()->instantiate($postdata{'switch'});
+
+    my ($switchdeauthMethod, $deauthTechniques) = $switch->deauthTechniques($switch->{'_deauthMethod'},$postdata{'connection_type'});
+
+    $deauthTechniques->($switch,$postdata{'mac'});
+}
+
+sub firewall {
+    my ($class, %postdata )  = @_;
+    my $logger = Log::Log4perl->get_logger('pf::WebAPI');
+    use Data::Dumper; $logger->warn("Dumping my args: ". \@_);
+
+    # verify if firewall rule is ok
+    my $inline = new pf::inline::custom();
+    $inline->performInlineEnforcement($postdata{'mac'});
+}
  
 =head1 AUTHOR
 
