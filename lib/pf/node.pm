@@ -263,8 +263,12 @@ sub node_db_prepare {
     $node_statements->{'node_expire_lastarp_sql'} = get_db_handle()->prepare(
         qq [ select mac from node where unix_timestamp(last_arp) < (unix_timestamp(now()) - ?) and last_arp!=0 ]);
 
-    $node_statements->{'node_expire_lastdhcp_sql'} = get_db_handle()->prepare(
-        qq [ select mac from node where unix_timestamp(last_dhcp) < (unix_timestamp(now()) - ?) and last_dhcp !=0 and status="$STATUS_UNREGISTERED" ]);
+    $node_statements->{'node_expire_lastdhcp_sql'} = get_db_handle()->prepare( qq [ 
+        select mac from node 
+        where unix_timestamp(last_dhcp) < (unix_timestamp(now()) - ?) and 
+        unix_timestamp(detect_date) < (unix_timestamp(now()) - ?) and
+        status="$STATUS_UNREGISTERED" 
+        ]);
 
     $node_statements->{'node_unregistered_sql'} = get_db_handle()->prepare(qq[
         SELECT mac, pid, voip, bypass_vlan, status,
