@@ -127,12 +127,12 @@ sub _vlan_reevaluation {
         my %data = (
             'switch'           => $switch_id,
             'mac'              => $mac,
-            'connection_type ' => $conn_type,
+            'connection_type'  => $conn_type,
             'ifIndex'          => $ifIndex
         );
         if ( ( $conn_type & $WIRED ) == $WIRED ) {
             $logger->debug("Calling json WebAPI with ReAssign request on switch $switch_id for mac $mac");
-            $json_client->notify( 'ReAssign', %data );
+            $json_client->notify( 'ReAssignVlan', %data );
 
         }
         elsif ( ( $conn_type & $WIRELESS ) == $WIRELESS ) {

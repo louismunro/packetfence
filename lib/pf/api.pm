@@ -101,23 +101,24 @@ sub update_iplog {
 sub ReAssignVlan {
     my ($class, %postdata )  = @_;
     my $logger = Log::Log4perl->get_logger('pf::WebAPI');
-    use Data::Dumper; $logger->warn("Dumping my args: ". \@_);
 
     my $switch = pf::SwitchFactory->getInstance()->instantiate( $postdata{'switch'} );
 
     if ( defined( $postdata{'connection_type'} )
-        && ( $postdata{'connection_type'} == $WIRED_802_1X || $postdata{'connection_type'} == $WIRED_MAC_AUTH ) )
+        && ( $postdata{'connection_type'} & $WIRED ) )
     {
         my ( $switchdeauthMethod, $deauthTechniques )
-            = $switch->wiredeauthTechniques( $switch->{_deauthMethod}, $info->{'connection_type'} );
-        $deauthTechniques->( $postdata{'switch'}, $postdata{'ifIndex'}, $postdata{'mac'} );
+            = $switch->wiredeauthTechniques( $switch->{_deauthMethod}, $postdata{'connection_type'} );
+        $switch->$deauthTechniques( $postdata{'ifIndex'}, $postdata{'mac'} );
+    }
+    else { 
+        $logger->error("Connection type is not wired. Could not reassign VLAN."); 
     }
 }
 
 sub desAssociate {
     my ($class, %postdata )  = @_;
     my $logger = Log::Log4perl->get_logger('pf::WebAPI');
-    use Data::Dumper; $logger->warn("Dumping my args: ". \@_);
 
     my $switch = pf::SwitchFactory->getInstance()->instantiate($postdata{'switch'});
 
@@ -129,7 +130,7 @@ sub desAssociate {
 sub firewall {
     my ($class, %postdata )  = @_;
     my $logger = Log::Log4perl->get_logger('pf::WebAPI');
-    use Data::Dumper; $logger->warn("Dumping my args: ". \@_);
+    use Data::Dumper; $logger->warn("Dumping my args: ". Dumper \@_);
 
     # verify if firewall rule is ok
     my $inline = new pf::inline::custom();
