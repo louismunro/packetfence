@@ -102,11 +102,18 @@ sub ReAssignVlan {
     my ($class, %postdata )  = @_;
     my $logger = Log::Log4perl->get_logger('pf::WebAPI');
 
+    if ( not defined( $postdata{'connection_type'} ) { 
+        $logger->error("Connection type is unknown. Could not reassign VLAN."); 
+        return;
+    }
+
     my $switch = pf::SwitchFactory->getInstance()->instantiate( $postdata{'switch'} );
 
-    if ( defined( $postdata{'connection_type'} )
-        && ( $postdata{'connection_type'} & $WIRED ) )
-    {
+    # SNMP traps connections need to be handled specially to account for port-security etc.
+    if ( ($postdata{'connection_type'} & $WIRED_SNMP_TRAPS) == $WIRED_SNMP_TRAPS ) {
+        _reassignSNMPConnections($switch, $postdata{'mac'}, $postdata{'ifIndex'}, $postdata{'connection_type'} );
+    }
+    elsif (  $postdata{'connection_type'} & $WIRED ) {
         my ( $switchdeauthMethod, $deauthTechniques )
             = $switch->wiredeauthTechniques( $switch->{_deauthMethod}, $postdata{'connection_type'} );
         $switch->$deauthTechniques( $postdata{'ifIndex'}, $postdata{'mac'} );
@@ -135,6 +142,45 @@ sub firewall {
     # verify if firewall rule is ok
     my $inline = new pf::inline::custom();
     $inline->performInlineEnforcement($postdata{'mac'});
+}
+
+
+# Handle connection types $WIRED_SNMP_TRAPS
+sub _reassignSNMPConnections {
+    my ( $switch, $mac, $ifIndex, $connection_type ) = @_;
+
+    # find open non VOIP entries in locationlog. Fail if none found.
+    my @locationlog = locationlog_view_open_switchport_no_VoIP( $switch->{_id}, $ifIndex );
+    unless ( (@locationlog) && ( scalar(@locationlog) > 0 ) && ( $locationlog[0]->{'mac'} ne '' ) ) {
+        $logger->warn(
+            "received reAssignVlan trap on "
+                . $switch->{_id} . " ifIndex $ifIndex but can't determine non VoIP MAC"
+        );
+        return;
+    }
+
+    # case PORTSEC : When doing port-security we need to reassign the VLAN before 
+    # bouncing the port. 
+    if ( $switch->isPortSecurityEnabled($ifIndex) ) {
+        $logger->info( "security traps are configured on "
+                . $switch->{_id} . " ifIndex $ifIndex. Re-assigning VLAN for $mac" );
+
+        node_determine_and_set_into_VLAN( $mac, $switch, $ifIndex, $connection_type );
+        
+        # We treat phones differently. We never bounce their ports except if there is an outstanding
+        # violation. 
+        if ( $switch->hasPhoneAtIfIndex($ifIndex)  ) {
+            my @violations = violation_view_open_desc($mac);
+            if ( scalar(@violations) == 0 ) {
+                $logger->warn("VLAN changed and $mac is behind VoIP phone. Not bouncing the port!");
+                return;
+            }
+        }
+
+    } # end case PORTSEC
+    
+    $logger->info( "Flipping admin status on switch " . $switch->{_id} . " ifIndex $ifIndex. " );
+    $switch->bouncePort($switch_port);
 }
  
 =head1 AUTHOR
