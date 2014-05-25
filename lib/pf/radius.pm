@@ -34,6 +34,7 @@ use pf::vlan::custom $VLAN_API_LEVEL;
 # constants used by this module are provided by
 use pf::radius::constants;
 use List::Util qw(first);
+use pf::MAC;
 
 our $VERSION = 1.03;
 
@@ -295,7 +296,8 @@ sub extractApMacFromRadiusRequest {
             # below is MAC Address with supported separators: :, - or nothing
             ([a-f0-9]{2}([-:]?[a-f0-9]{2}){5})
         /ix) {
-            return clean_mac($1);
+            my $mac = pf::MAC->new( mac => $1 );
+            return $mac->clean();
         } else {
             $logger->info("Unable to extract SSID of Called-Station-Id: ".$radius_request->{'Called-Station-Id'});
         }
