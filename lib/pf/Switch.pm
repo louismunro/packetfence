@@ -33,6 +33,7 @@ use pf::roles::custom $ROLE_API_LEVEL;
 use pf::Switch::constants;
 use pf::util;
 use pf::util::radius qw(perform_disconnect);
+use pf::MAC;
 use List::MoreUtils qw(any all);
 use Scalar::Util qw(looks_like_number);
 use List::MoreUtils qw(any);
@@ -2897,7 +2898,7 @@ User-Name
 
 sub parseRequest {
     my ($this, $radius_request) = @_;
-    my $client_mac = clean_mac($radius_request->{'Calling-Station-Id'});
+    my $client_mac = pf::MAC->new( mac => $radius_request->{'Calling-Station-Id'} )->clean();
     my $user_name = $radius_request->{'User-Name'};
     my $nas_port_type = $radius_request->{'NAS-Port-Type'};
     my $port = $radius_request->{'NAS-Port'};
