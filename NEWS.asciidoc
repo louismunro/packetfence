@@ -17,17 +17,42 @@ Version 4.x.y released on YYYY-MM-DD
 New Features
 ++++++++++++
 
+* Added MAC authentication support for Edge-corE 4510
 * Added support for Ruckus External Captive Portal
+* Support for Huawei S2700, S3700, S5700, S6700, S7700, S9700 switches
+* Added support for LinkedIn and Windows Live as authentication sources
+* Support for 802.1X on Juniper EX2200 and EX4200 switches
+* Added support for the Netgear M series switches
+* Added support to define SNAT interface to use for passthrough
+* Added Nessus scan policy based on a DHCP fingerprint
+* Added support to unregister a node if the username is locked or deleted in Active Directory
+* Fortinet FortiGate and PaloAlto firewalls integration
+* Added configuration parameters to use mapping by vlan or mapping by role
 
 Enhancements
 ++++++++++++
 
 * When validating an email confirmation code, use the same portal profile initially used by to register the device
+* Removed old iptables code (ipset is now always used for inline enforcement)
+* MariaDB support
+* Updated WebAPI method
+* Use Webservices parameters from PacketFence configuration
+* Use WebAPI notify from pfdhcplistener (faster)
+* Improved Apache SSL configuration forbids SSLv2 use and prioritzes better ciphers
+* Removed CGI-based captive portal files
+* For device registration use the source used to authenticate for calculating the role and unregdate (bugid:1805)
+* For device registration, we set the "NOTES" field of the node with the selected type of device (if defined)
+* On status page check the portal associated to the user and authenticate on the sources included in the portal profile
+* Merge pf::email_activation and pf::sms_activation to pf::activation
+* Removed unused table switchlocation
 
 Bug Fixes
 +++++++++
 
 * Fixed pfdetectd not starting because of stale pid file
+* Fixed SQL join with iplog in advanced search of nodes
+* Fixed unreg date calculation in Catalyst captive portal
+* Fixed allowed_device_types array in device registration page (bugid:1809)
 
 Version 4.2.2 released on 2014-05-29
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

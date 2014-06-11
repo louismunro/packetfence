@@ -14,31 +14,34 @@ pf::api
 use strict;
 use warnings;
 
-use pf::config();
+use pf::config;
 use pf::iplog();
 use pf::log();
 use pf::radius::custom();
 use pf::violation();
 use pf::soh::custom();
 use pf::util();
+use pf::node;
+use pf::locationlog();
+use pf::ipset();
 
 sub event_add {
-  my ($class, $date, $srcip, $type, $id) = @_;
-  my $logger = pf::log::get_logger();
-  $logger->info("violation: $id - IP $srcip");
+    my ($class, $date, $srcip, $type, $id) = @_;
+    my $logger = pf::log::get_logger();
+    $logger->info("violation: $id - IP $srcip");
 
-  # fetch IP associated to MAC
-  my $srcmac = pf::util::ip2mac($srcip);
-  if ($srcmac) {
+    # fetch IP associated to MAC
+    my $srcmac = pf::util::ip2mac($srcip);
+    if ($srcmac) {
 
-    # trigger a violation
-    pf::violation::violation_trigger($srcmac, $id, $type);
+        # trigger a violation
+        pf::violation::violation_trigger($srcmac, $id, $type);
 
-  } else {
-    $logger->info("violation on IP $srcip with trigger ${type}::${id}: violation not added, can't resolve IP to mac !");
-    return(0);
-  }
-  return (1);
+    } else {
+        $logger->info("violation on IP $srcip with trigger ${type}::${id}: violation not added, can't resolve IP to mac !");
+        return(0);
+    }
+    return (1);
 }
 
 sub echo {
@@ -47,48 +50,48 @@ sub echo {
 }
 
 sub radius_authorize {
-  my ($class, %radius_request) = @_;
-  my $logger = pf::log::get_logger();
+    my ($class, %radius_request) = @_;
+    my $logger = pf::log::get_logger();
 
-  my $radius = new pf::radius::custom();
-  my $return;
-  eval {
-      $return = $radius->authorize(\%radius_request);
-  };
-  if ($@) {
-      $logger->error("radius authorize failed with error: $@");
-  }
-  return $return;
+    my $radius = new pf::radius::custom();
+    my $return;
+    eval {
+        $return = $radius->authorize(\%radius_request);
+    };
+    if ($@) {
+        $logger->error("radius authorize failed with error: $@");
+    }
+    return $return;
 }
 
 sub radius_accounting {
-  my ($class, %radius_request) = @_;
-  my $logger = pf::log::get_logger();
+    my ($class, %radius_request) = @_;
+    my $logger = pf::log::get_logger();
 
-  my $radius = new pf::radius::custom();
-  my $return;
-  eval {
-      $return = $radius->accounting(\%radius_request);
-  };
-  if ($@) {
-      $logger->logdie("radius accounting failed with error: $@");
-  }
-  return $return;
+    my $radius = new pf::radius::custom();
+    my $return;
+    eval {
+        $return = $radius->accounting(\%radius_request);
+    };
+    if ($@) {
+        $logger->logdie("radius accounting failed with error: $@");
+    }
+    return $return;
 }
 
 sub soh_authorize {
-  my ($class, %radius_request) = @_;
-  my $logger = pf::log::get_logger();
+    my ($class, %radius_request) = @_;
+    my $logger = pf::log::get_logger();
 
-  my $soh = pf::soh::custom->new();
-  my $return;
-  eval {
-    $return = $soh->authorize(\%radius_request);
-  };
-  if ($@) {
-    $logger->error("soh authorize failed with error: $@");
-  }
-  return $return;
+    my $soh = pf::soh::custom->new();
+    my $return;
+    eval {
+      $return = $soh->authorize(\%radius_request);
+    };
+    if ($@) {
+      $logger->error("soh authorize failed with error: $@");
+    }
+    return $return;
 }
 
 sub update_iplog {
@@ -102,7 +105,7 @@ sub ReAssignVlan {
     my ($class, %postdata )  = @_;
     my $logger = Log::Log4perl->get_logger('pf::WebAPI');
 
-    if ( not defined( $postdata{'connection_type'} ) { 
+    if ( not defined( $postdata{'connection_type'} )) { 
         $logger->error("Connection type is unknown. Could not reassign VLAN."); 
         return;
     }
@@ -129,16 +132,15 @@ sub desAssociate {
 
     my $switch = pf::SwitchFactory->getInstance()->instantiate($postdata{'switch'});
 
-    my ($switchdeauthMethod, $deauthTechniques) = $switch->deauthTechniques($switch->{'_deauthMethod'},$postdata{'connection_type'});
+    my ($switchdeauthMethod, $deauthTechniques) = $switch->deauthTechniques($switch->{'_deauthMethod'});
 
     $logger->info("DeAssociating mac $postdata{'mac'} on switch " . $switch->{_id});
-    $deauthTechniques->($switch,$postdata{'mac'});
+    $switch->$deauthTechniques($postdata{'mac'});
 }
 
 sub firewall {
     my ($class, %postdata )  = @_;
     my $logger = Log::Log4perl->get_logger('pf::WebAPI');
-    use Data::Dumper; $logger->warn("Dumping my args: ". Dumper \@_);
 
     # verify if firewall rule is ok
     my $inline = new pf::inline::custom();
@@ -149,7 +151,7 @@ sub firewall {
 # Handle connection types $WIRED_SNMP_TRAPS
 sub _reassignSNMPConnections {
     my ( $switch, $mac, $ifIndex, $connection_type ) = @_;
-
+    my $logger = pf::log::get_logger();
     # find open non VOIP entries in locationlog. Fail if none found.
     my @locationlog = locationlog_view_open_switchport_no_VoIP( $switch->{_id}, $ifIndex );
     unless ( (@locationlog) && ( scalar(@locationlog) > 0 ) && ( $locationlog[0]->{'mac'} ne '' ) ) {
@@ -181,9 +183,90 @@ sub _reassignSNMPConnections {
     } # end case PORTSEC
     
     $logger->info( "Flipping admin status on switch " . $switch->{_id} . " ifIndex $ifIndex. " );
-    $switch->bouncePort($switch_port);
+    $switch->bouncePort($ifIndex);
 }
  
+sub unreg_node_for_pid {
+    my ($class, $pid) = @_;
+
+    my $logger = pf::log::get_logger();
+    my @node_infos =  node_view_reg_pid($pid->{'pid'});
+    $logger->info("Unregistering ".scalar(@node_infos)." nodes for $pid");
+
+    foreach my $node_info ( @node_infos ) {
+        node_deregister($node_info->{'mac'});
+    }
+
+    return 1;
+}
+
+sub synchronize_locationlog {
+    my ( $class, $switch, $switch_ip, $switch_mac, $ifIndex, $vlan, $mac, $voip_status, $connection_type, $user_name, $ssid ) = @_;
+    my $logger = pf::log::get_logger();
+
+    return (pf::locationlog::locationlog_synchronize($switch, $switch_ip, $switch_mac, $ifIndex, $vlan, $mac, $voip_status, $connection_type, $user_name, $ssid));
+}
+
+sub insert_close_locationlog {
+    my ($class, $switch, $switch_ip, $switch_mac, $ifIndex, $vlan, $mac, $connection_type, $user_name, $ssid);
+    my $logger = pf::log::get_logger();
+
+    return(pf::locationlog::locationlog_insert_closed($switch, $switch_ip, $switch_mac, $ifIndex, $vlan, $mac, $connection_type, $user_name, $ssid));
+}
+
+sub open_iplog {
+    my ( $class, $mac, $ip, $lease_length ) = @_;
+    my $logger = pf::log::get_logger();
+
+    return (pf::iplog::iplog_open($mac, $ip, $lease_length));
+}
+
+sub close_iplog {
+    my ( $class, $ip ) = @_;
+    my $logger = pf::log::get_logger();
+
+    return (pf::iplog::iplog_close($ip));
+}
+
+sub close_now_iplog {
+    my ( $class, $ip ) = @_;
+    my $logger = pf::log::get_logger();
+
+    return (pf::iplog::iplog_close_now($ip));
+}
+
+sub trigger_violation {
+    my ( $class, $mac, $tid, $type ) = @_;
+    my $logger = pf::log::get_logger();
+
+    return (pf::violation::violation_trigger($mac, $tid, $type));
+}
+
+sub ipset_node_update {
+    my ( $class, $oldip, $srcip, $srcmac ) = @_;
+    my $logger = pf::log::get_logger();
+
+    return(pf::ipset::node_update($oldip, $srcip, $srcmac));
+}
+
+sub firewallsso {
+    my ($class, $info) = @_;
+    my $logger = pf::log::get_logger();
+
+    foreach my $firewall_conf ( sort keys %ConfigFirewallSSO ) {
+        my $module_name = 'pf::firewallsso::'.$ConfigFirewallSSO{$firewall_conf}->{'type'};
+        $module_name = untaint_chain($module_name);
+        # load the module to instantiate
+        if ( !(eval "$module_name->require()" ) ) {
+            $logger->error("Can not load perl module: $@");
+            return 0;
+        }
+        my $firewall = $module_name->new();
+        $firewall->action($firewall_conf,$info->{'method'},$info->{'mac'},$info->{'ip'},$info->{'timeout'});
+    }
+    return $TRUE;
+}
+
 =head1 AUTHOR
 
 Inverse inc. <info@inverse.ca>

@@ -51,8 +51,6 @@ Source: http://www.packetfence.org/downloads/PacketFence/src/%{real_name}-%{vers
 Source: http://www.packetfence.org/downloads/PacketFence/src/%{real_name}-%{version}-%{rev}.tar.gz
 %endif
 
-%define git_commit %{git_commit}
-
 # Log related globals
 %global logfiles packetfence.log catalyst.log snmptrapd.log access_log error_log admin_access_log admin_error_log admin_debug_log pfdetect pfmon
 %global logdir /usr/local/pf/logs
@@ -126,10 +124,8 @@ requires: perl(Crypt::OpenSSL::X509)
 requires: perl(Const::Fast)
 # Perl core modules but still explicitly defined just in case distro's core perl get stripped
 Requires: perl(Time::HiRes)
-# Required for inline mode. Specific version matches system's iptables version.
-# CentOS 5 (iptables 1.3.5)
-%{?el5:Requires: perl(IPTables::libiptc) = 0.14 }
-%{?el6:Requires: perl(IPTables::libiptc), ipset, sudo }
+# Required for inline mode.
+Requires: ipset, sudo
 Requires: perl(File::Which), perl(NetAddr::IP)
 Requires: perl(Net::LDAP)
 # TODO: we should depend on perl modules not perl-libwww-perl package
@@ -247,6 +243,7 @@ Requires: perl(File::Touch)
 Requires: perl(Hash::Merge)
 Requires: perl(IO::Socket::INET6)
 Requires: perl(IO::Interface)
+Requires: perl(Time::Period)
 # configuration-wizard
 Requires: iproute, vconfig
 #
@@ -350,7 +347,7 @@ done
 # build pfcmd C wrapper
 gcc -g0 src/pfcmd.c -o bin/pfcmd
 # Define git_commit_id
-echo git_commit > conf/git_commit_id
+echo %{git_commit} > conf/git_commit_id
 
 find -name '*.example' -print0 | while read -d $'\0' file
 do
@@ -693,6 +690,8 @@ fi
 %config(noreplace)      /usr/local/pf/conf/chi.conf
 %config                 /usr/local/pf/conf/dhcp_fingerprints.conf
 %config                 /usr/local/pf/conf/documentation.conf
+%config(noreplace)      /usr/local/pf/conf/firewall_sso.conf
+                        /usr/local/pf/conf/firewall_sso.conf.example
 %config(noreplace)      /usr/local/pf/conf/floating_network_device.conf
 %config(noreplace)      /usr/local/pf/conf/guest-managers.conf
                         /usr/local/pf/conf/git_commit_id
@@ -760,13 +759,14 @@ fi
                         /usr/local/pf/conf/snort/reference.config.example
 %dir                    /usr/local/pf/conf/ssl
 %config(noreplace)      /usr/local/pf/conf/switches.conf
+                        /usr/local/pf/conf/switches.conf.example
+%config(noreplace)      /usr/local/pf/conf/vlan_filters.conf
+                        /usr/local/pf/conf/vlan_filters.conf.example
 %config                 /usr/local/pf/conf/dhcpd.conf
 %dir                    /usr/local/pf/conf/httpd.conf.d
-%config                 /usr/local/pf/conf/httpd.conf.d/captive-portal-cleanurls.conf
 %config                 /usr/local/pf/conf/httpd.conf.d/captive-portal-common.conf
 %config                 /usr/local/pf/conf/httpd.conf.d/httpd.admin
 %config                 /usr/local/pf/conf/httpd.conf.d/httpd.portal
-%config                 /usr/local/pf/conf/httpd.conf.d/httpd.portal.cgi
 %config                 /usr/local/pf/conf/httpd.conf.d/httpd.proxy
 %config                 /usr/local/pf/conf/httpd.conf.d/httpd.webservices
 %config                 /usr/local/pf/conf/httpd.conf.d/log.conf
@@ -806,7 +806,6 @@ fi
 %doc                    /usr/local/pf/docs/MIB/Inverse-PacketFence-Notification.mib
 %dir                    /usr/local/pf/html
 %dir                    /usr/local/pf/html/captive-portal
-%attr(0755, pf, pf)     /usr/local/pf/html/captive-portal/*.cgi
                         /usr/local/pf/html/captive-portal/Changes
                         /usr/local/pf/html/captive-portal/Makefile.PL
                         /usr/local/pf/html/captive-portal/README

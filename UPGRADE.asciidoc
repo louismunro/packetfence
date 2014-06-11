@@ -5,6 +5,26 @@ http://www.packetfence.org/
 
 Notes on upgrading from an older release.
 
+Upgrading from a version prior to 4.3.0
+---------------------------------------
+
+Database schema update
+^^^^^^^^^^^^^^^^^^^^^^
+
+The email_activation table has a new column to keep the portal used to register.
+The person table has 2 new column to keep the portal and the source used to authenticate.
+
+Make sure you run the following to update your schema:
+
+  mysql -u root -p pf -v < db/upgrade-4.2.0-4.3.0.sql
+
+Configuration changes
+^^^^^^^^^^^^^^^^^^^^^
+
+The parameters `VlanMap` and `RoleMap` have been added in `switches.conf` be sure to add them in the [default] switch section.
+
+Once the configuration completed, update the file /usr/local/pf/conf/currently-at to match the new release number.
+
 Upgrading from a version prior to 4.2.0
 ---------------------------------------
 

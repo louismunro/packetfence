@@ -86,10 +86,12 @@ sub authorize {
 
     my ($nas_port_type, $eap_type, $mac, $port, $user_name, $nas_port_id, $session_id) = $switch->parseRequest($radius_request);
 
+    my $connection_type = $switch->_identifyConnectionType($nas_port_type, $eap_type, $mac, $user_name);
+    $port = $switch->getIfIndexByNasPortId($nas_port_id) || $this->_translateNasPortToIfIndex($connection_type, $switch, $port);
+
     $logger->trace("received a radius authorization request with parameters: ".
         "nas port type => $nas_port_type, switch_ip => $switch_ip, EAP-Type => $eap_type, ".
         "mac => $mac, port => $port, username => $user_name");
-    my $connection_type = $switch->_identifyConnectionType($nas_port_type, $eap_type, $mac, $user_name);
 
     # TODO maybe it's in there that we should do all the magic that happened in the FreeRADIUS module
     # meaning: the return should be decided by _doWeActOnThisCall, not always $RADIUS::RLM_MODULE_NOOP
@@ -126,7 +128,6 @@ sub authorize {
 
     # switch-specific information retrieval
     my $ssid;
-    $port = $switch->getIfIndexByNasPortId($nas_port_id) || $this->_translateNasPortToIfIndex($connection_type, $switch, $port);
     if (($connection_type & $WIRELESS) == $WIRELESS) {
         $ssid = $switch->extractSsid($radius_request);
         $logger->debug("SSID resolved to: $ssid") if (defined($ssid));
@@ -138,7 +139,7 @@ sub authorize {
     my $vlan_obj = new pf::vlan::custom();
     # should we auto-register? let's ask the VLAN object
     if ($vlan_obj->shouldAutoRegister($mac, $switch->isRegistrationMode(), 0, $isPhone,
-        $connection_type, $user_name, $ssid, $eap_type)) {
+        $connection_type, $user_name, $ssid, $eap_type, $switch, $port)) {
 
         # automatic registration
         my %autoreg_node_defaults = $vlan_obj->getNodeInfoForAutoReg($switch->{_id}, $port,
@@ -297,7 +298,7 @@ sub extractApMacFromRadiusRequest {
         /ix) {
             return clean_mac($1);
         } else {
-            $logger->info("Unable to extract SSID of Called-Station-Id: ".$radius_request->{'Called-Station-Id'});
+            $logger->info("Unable to extract MAC from Called-Station-Id: ".$radius_request->{'Called-Station-Id'});
         }
     }
 

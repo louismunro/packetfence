@@ -11,9 +11,10 @@ use NetAddr::IP;
 use pf::iplog qw(iplog_open);
 use pf::Portal::ProfileFactory;
 use File::Spec::Functions qw(catdir);
-use pf::email_activation qw(view_by_code);
+use pf::activation qw(view_by_code);
 use pf::web::constants;
-use Apache2::RequestRec;
+use URI::Escape::XS qw(uri_escape uri_unescape);
+use HTML::Entities;
 
 =head1 NAME
 
@@ -66,6 +67,10 @@ has redirectURL => (
     is       => 'rw',
 );
 
+has destination_url => (
+    is       => 'rw',
+);
+
 has [qw(forwardedFor guestNodeMac)] => ( is => 'rw', );
 
 sub ACCEPT_CONTEXT {
@@ -74,18 +79,22 @@ sub ACCEPT_CONTEXT {
     my $model = $c->session->{$class};
     my $request       = $c->request;
     my $r = $request->{'env'}->{'psgi.input'};
-    return $model if (defined($model) && !($r->pnotes('last_uri')) );
+    return $model if (defined($model) && $r->isa('Apache2::Request') && !($r->pnotes('last_uri')) );
     my $remoteAddress = $request->address;
     my $forwardedFor  = $request->header('HTTP_X_FORWARDED_FOR');
     my $redirectURL;
     my $uri = $request->uri;
     my $options;
-    if( defined ( my $last_uri = $r->pnotes('last_uri') )) {
+    my $destination_url;
+    $destination_url = $request->param('destination_url') if defined($request->param('destination_url'));
+
+    my $code = $1 if ($r->uri =~ /$WEB::URL_EMAIL_ACTIVATION_LINK\/(.*)/);
+    if( $r->isa('Apache2::Request') &&  defined ( my $last_uri = $r->pnotes('last_uri') )) {
         $options = {
             'last_uri' => $last_uri,
         };
-    } elsif (defined($request->param('code'))) {
-        my $data = view_by_code("1:".$request->param('code'));
+    } elsif (defined($code)) {
+        my $data = view_by_code("1:".$code);
         $options = {
             'portal' => $data->{portal},
         };
@@ -95,6 +104,7 @@ sub ACCEPT_CONTEXT {
         remoteAddress => $remoteAddress,
         forwardedFor  => $forwardedFor,
         options       => $options,
+        destination_url => $destination_url,
         @args,
     );
     $c->session->{$class} = $model;
@@ -105,12 +115,12 @@ sub _build_destinationUrl {
     my ($self) = @_;
 
     # Return portal profile's redirection URL if destination_url is not set or if redirection URL is forced
-    if (!defined($self->cgi->param("destination_url")) || $self->profile->forceRedirectURL) {
-        return $self->getProfile->getRedirectURL;
+    if (!defined($self->destination_url) || isenabled($self->profile->forceRedirectURL)) {
+        return $self->profile->getRedirectURL;
     }
 
     # Respect the user's initial destination URL
-    return $self->{'_destination_url'} || decode_entities(uri_unescape($self->cgi->param("destination_url")));
+    return decode_entities(uri_unescape($self->destination_url));
 }
 
 sub _build_clientIp {

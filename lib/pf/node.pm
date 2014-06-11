@@ -50,6 +50,7 @@ BEGIN {
         node_count_all
         node_view_all
         node_view_with_fingerprint
+        node_view_reg_pid
         node_modify
         node_register
         node_deregister
@@ -189,6 +190,12 @@ sub node_db_prepare {
         FROM node
             LEFT JOIN node_category USING (category_id)
         WHERE node.mac=?
+    SQL
+
+    $node_statements->{'node_view_reg_pid_sql'} = get_db_handle()->prepare(<<'    SQL');
+        SELECT node.mac
+        FROM node
+        WHERE node.pid=? AND node.status="$STATUS_REGISTERED";
     SQL
 
     $node_statements->{'node_last_locationlog_sql'} = get_db_handle()->prepare(<<'    SQL');
@@ -353,6 +360,14 @@ sub node_pid {
     my ($count) = $query->fetchrow_array();
     $query->finish();
     return ($count);
+}
+
+#
+# return mac for specified register pid
+#
+sub node_view_reg_pid {
+    my ($pid) = @_;
+    return (db_data(NODE, $node_statements, 'node_view_reg_pid_sql', $pid));
 }
 
 #
@@ -756,7 +771,7 @@ sub node_modify {
     }
 
     # Autoregistration handling
-    if (!defined($data{'autoreg'})) {
+    if (!defined($data{'autoreg'}) && (!defined($existing->{autoreg}) || $existing->{autoreg} ne 'yes' )) {
         $existing->{autoreg} = 'no';
     }
 
@@ -811,6 +826,12 @@ sub node_register {
     } else {
         $logger->debug("person $pid already exists");
     }
+    pf::person::person_modify($pid,
+                    'source'  => $info{'source'},
+                    'portal'     => $info{'portal'},
+    );
+    delete $info{'source'};
+    delete $info{'portal'};
 
     # if it's for auto-registration and mac is already registered, we are done
     if ($auto_registered) {

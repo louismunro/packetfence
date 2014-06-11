@@ -69,6 +69,8 @@ CREATE TABLE person (
   `custom_field_7` varchar(255) default NULL,
   `custom_field_8` varchar(255) default NULL,
   `custom_field_9` varchar(255) default NULL,
+  `portal` varchar(255) default NULL,
+  `source` varchar(255) default NULL,
   PRIMARY KEY (pid)
 ) ENGINE=InnoDB;
 
@@ -291,16 +293,6 @@ CREATE TABLE `ifoctetslog` (
   PRIMARY KEY  (`switch`,`port`,`read_time`)
 ) ENGINE=InnoDB;
 
-CREATE TABLE `switchlocation` (
-  `switch` varchar(17) NOT NULL default '',
-  `port` varchar(8) NOT NULL default '',
-  `start_time` datetime NOT NULL default '0000-00-00 00:00:00',
-  `end_time` datetime default NULL,
-  `location` varchar(50) default NULL,
-  `description` varchar(50) default NULL,
-  PRIMARY KEY  (`switch`,`port`,`start_time`)
-) ENGINE=InnoDB;
-
 CREATE TABLE `traplog` (
   `switch` varchar(30) NOT NULL default '',
   `ifIndex` smallint(6) NOT NULL default '0',
@@ -315,25 +307,6 @@ CREATE TABLE `configfile` (
   `filecontent` text NOT NULL,
   `lastmodified` datetime NOT NULL
 ) ENGINE=InnoDB default CHARSET=latin1;
-
---
--- Table structure for table `email_activation`
---
-
-CREATE TABLE email_activation (
-  `code_id` int NOT NULL AUTO_INCREMENT,
-  `pid` varchar(255) default NULL,
-  `mac` varchar(17) default NULL,
-  `email` varchar(255) NOT NULL, -- email were approbation request is sent 
-  `activation_code` varchar(255) NOT NULL,
-  `expiration` datetime NOT NULL,
-  `status` varchar(60) default NULL,
-  `type` varchar(60) default NULL,
-  `portal` varchar(255) default NULL,
-  PRIMARY KEY (code_id),
-  KEY `identifier` (pid, mac),
-  KEY `activation` (activation_code, status)
-) ENGINE=InnoDB;
 
 --
 -- Table structure for table `temporary_password`
@@ -371,23 +344,6 @@ BEGIN
   DELETE FROM temporary_password WHERE pid = OLD.pid;
 END /
 DELIMITER ;
-
---
--- Table structure for table `sms_activation`
---
-
-CREATE TABLE sms_activation (
-  `code_id` int NOT NULL AUTO_INCREMENT,
-  `mac` varchar(17) default NULL,
-  `phone_number` varchar(255) NOT NULL, -- phone number where sms is sent
-  `carrier_id` int(11) NOT NULL,
-  `activation_code` varchar(255) NOT NULL,
-  `expiration` datetime NOT NULL,
-  `status` varchar(60) default NULL,
-  PRIMARY KEY (code_id),
-  KEY `identifier` (mac),
-  KEY `activation` (activation_code, status)
-) ENGINE=InnoDB;
 
 --
 -- Table structure for table `sms_carrier`
@@ -891,3 +847,25 @@ CREATE TABLE wrix (
   `MAC_Address` varchar(255) NULL DEFAULT NULL,
    PRIMARY KEY (id)
 ) ENGINE=InnoDB;
+
+--
+-- Table structure for table `activation`
+--
+
+CREATE TABLE activation (
+  `code_id` int NOT NULL AUTO_INCREMENT,
+  `pid` varchar(255) default NULL,
+  `mac` varchar(17) default NULL,
+  `contact_info` varchar(255) NOT NULL, -- email or phone number were approbation request is sent 
+  `carrier_id` int(11) NULL,
+  `activation_code` varchar(255) NOT NULL,
+  `expiration` datetime NOT NULL,
+  `status` varchar(60) default NULL,
+  `type` varchar(60) NOT NULL,
+  `portal` varchar(255) default NULL,
+  PRIMARY KEY (code_id),
+  KEY `mac` (mac),
+  KEY `identifier` (pid, mac),
+  KEY `activation` (activation_code, status)
+) ENGINE=InnoDB;
+

@@ -10,8 +10,8 @@ use pf::web qw(i18n ni18n i18n_format render_template);
 use pf::web::constants;
 use pf::web::util;
 use pf::web::guest;
-use pf::email_activation;
-use pf::sms_activation;
+use pf::activation;
+use pf::sms_carrier;
 use pf::Authentication::constants;
 use pf::Authentication::Action;
 use pf::authentication;
@@ -181,6 +181,8 @@ sub doEmailSelfRegistration : Private {
             'telephone' => $session->{phone},
             'notes'     => 'email activation. Date of arrival: '
               . time2str( "%Y-%m-%d %H:%M:%S", time ),
+            'portal'    => $profile->getName,
+            'source'    => $source->{id},
         )
     );
 
@@ -204,14 +206,14 @@ sub doEmailSelfRegistration : Private {
 
     # TODO this portion of the code should be throttled to prevent malicious intents (spamming)
     my ( $auth_return, $err, $errargs_ref ) =
-      pf::email_activation::create_and_email_activation_code(
+      pf::activation::create_and_send_activation_code(
         $portalSession->guestNodeMac(),
         $pid, $email,
         (     $session->{preregistration}
             ? $pf::web::guest::TEMPLATE_EMAIL_EMAIL_PREREGISTRATION
             : $pf::web::guest::TEMPLATE_EMAIL_GUEST_ACTIVATION
         ),
-        $pf::email_activation::GUEST_ACTIVATION,
+        $pf::activation::GUEST_ACTIVATION,
         $profile->getName,
         %info,
       );
@@ -270,6 +272,14 @@ sub doSponsorSelfRegistration : Private {
     my $email = $c->session->{"email"};
     $info{'pid'} = $pid;
 
+    my $sponsor_type =
+      pf::Authentication::Source::SponsorEmailSource->getDefaultOfType;
+    my $source      = $profile->getSourceByType($sponsor_type);
+    my $auth_params = {
+        'username'   => $pid,
+        'user_email' => $email
+    };
+
     # form valid, adding person (using modify in case person already exists)
     person_modify(
         $pid,
@@ -280,18 +290,12 @@ sub doSponsorSelfRegistration : Private {
             'telephone' => $c->session->{"phone"},
             'sponsor'   => $c->session->{"sponsor"},
             'notes'     => 'sponsored guest. Date of arrival: '
-              . time2str( "%Y-%m-%d %H:%M:%S", time )
+              . time2str( "%Y-%m-%d %H:%M:%S", time ),
+            'portal'    => $profile->getName,
+            'source'    => $source->{id},
         )
     );
     $logger->info( "Adding guest person " . $c->session->{'guest_pid'} );
-
-    my $sponsor_type =
-      pf::Authentication::Source::SponsorEmailSource->getDefaultOfType;
-    my $source      = $profile->getSourceByType($sponsor_type);
-    my $auth_params = {
-        'username'   => $pid,
-        'user_email' => $email
-    };
 
     # fetch role for this user
     $info{'category'} =
@@ -304,8 +308,7 @@ sub doSponsorSelfRegistration : Private {
         $Actions::SET_ACCESS_DURATION );
 
     if ( defined $info{'unregdate'} ) {
-        $info{'unregdate'} = POSIX::strftime( "%Y-%m-%d %H:%M:%S",
-            localtime( time + normalize_time( $info{'unregdate'} ) ) );
+        $info{'unregdate'} = pf::config::access_duration($info{'unregdate'});
     } else {
         $info{'unregdate'} =
           &pf::authentication::match( $source->{id}, $auth_params,
@@ -334,12 +337,12 @@ sub doSponsorSelfRegistration : Private {
 
     # TODO this portion of the code should be throttled to prevent malicious intents (spamming)
     my ( $auth_return, $err, $errargs_ref ) =
-      pf::email_activation::create_and_email_activation_code(
+      pf::activation::create_and_send_activation_code(
         $portalSession->guestNodeMac(),
         $pid,
         $info{'sponsor'},
         $pf::web::guest::TEMPLATE_EMAIL_SPONSOR_ACTIVATION,
-        $pf::email_activation::SPONSOR_ACTIVATION,
+        $pf::activation::SPONSOR_ACTIVATION,
         $profile->getName,
         %info,
       );
@@ -377,33 +380,18 @@ sub doSmsSelfRegistration : Private {
     my $profile        = $c->profile;
     my $request        = $c->request;
     my $logger         = get_logger;
+    my $session        = $c->session;
     my $mac            = $portalSession->clientMac;
-    my $phone          = $request->param("phone");
     my $mobileprovider = $request->param("mobileprovider");
+    my ($pid, $phone)  = @{$session}{qw(guest_pid phone)};
 
     # User chose to register by SMS
     $logger->info("registering $mac  guest by SMS $phone @ $mobileprovider");
     my ( $auth_return, $err, $errargs_ref ) =
-      sms_activation_create_send( $portalSession->guestNodeMac(),
-        $phone, $mobileprovider );
+      pf::activation::sms_activation_create_send( $mac, $pid, $phone, $profile->getName, $mobileprovider );
     if ($auth_return) {
 
-        my $pid   = $c->session->{'guest_pid'};
-        my $phone = $c->session->{"phone"};
         $info{'pid'} = $pid;
-
-        # form valid, adding person (using modify in case person already exists)
-        $logger->info("Adding guest person $pid ($phone)");
-        person_modify(
-            $pid,
-            (   map { $_ => $c->session->{$_} }
-                  qw(firstname lastname company  email)
-            ),
-            (   'telephone' => $phone,
-                'notes'     => 'sms confirmation. Date of arrival: '
-                  . time2str( "%Y-%m-%d %H:%M:%S", time ),
-            )
-        );
 
         $logger->info("redirecting to mobile confirmation page");
 
@@ -415,6 +403,22 @@ sub doSmsSelfRegistration : Private {
             'username'    => $pid,
             'phonenumber' => $phone
         };
+
+        # form valid, adding person (using modify in case person already exists)
+        $logger->info("Adding guest person $pid ($phone)");
+        person_modify(
+            $pid,
+            (   map { $_ => $c->session->{$_} }
+                  qw(firstname lastname company  email)
+            ),
+            (   'telephone' => $phone,
+                'notes'     => 'sms confirmation. Date of arrival: '
+                  . time2str( "%Y-%m-%d %H:%M:%S", time ),
+                'portal'    => $profile->getName,
+                'source'    => $source->{id},
+            )
+        );
+
         $info{'category'} =
           &pf::authentication::match( $source->{id}, $auth_params,
             $Actions::SET_ROLE );
@@ -504,21 +508,20 @@ sub validateBySponsorSource : Private {
     my $request = $c->request;
     if ( $request->param('by_sponsor') ) {
         my $sponsor_email = lc( $request->param('sponsor_email') );
-        my ( $username, $source_id ) =
-          &pf::authentication::username_from_email($sponsor_email);
-        unless (
-            defined $username
-            && defined &pf::authentication::match(
-                $source_id, { username => $username },
-                $Actions::MARK_AS_SPONSOR
-            )
-          ) {
+        my $value = &pf::authentication::match( &pf::authentication::getInternalAuthenticationSources(),
+                                                { email => $sponsor_email },
+                                                $Actions::MARK_AS_SPONSOR );
+
+        if (!defined $value) {
+            # sponsor check did not pass 
             $self->validationError( $c,
-                $GUEST::ERROR_EMAIL_UNAUTHORIZED_AS_GUEST,
+                $GUEST::ERROR_SPONSOR_NOT_ALLOWED,
                 $sponsor_email );
+            $c->detach();
         }
     }
 }
+
 
 =head2 validateByEmailSource
 
@@ -559,8 +562,7 @@ sub validateMandatoryFields : Private {
     my ( $self, $c ) = @_;
     my $request = $c->request;
     my ( $error_code, @error_args );
-    my @mandatory_fields = split( /\s*,\s*/,
-        $Config{'guests_self_registration'}{'mandatory_fields'} );
+    my @mandatory_fields = @{$c->profile->getMandatoryFields};
     my $by_email   = $request->param('by_email');
     my $by_sms     = $request->param('by_sms');
     my $by_sponsor = $request->param('by_sponsor');

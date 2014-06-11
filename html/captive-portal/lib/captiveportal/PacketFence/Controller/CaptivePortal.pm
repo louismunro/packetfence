@@ -9,14 +9,13 @@ use pf::config;
 use pf::log;
 use pf::util;
 use pf::Portal::Session;
-use Apache2::Const -compile => qw(OK DECLINED HTTP_MOVED_TEMPORARILY);
 use pf::web;
 use pf::node;
 use pf::useragent;
 use pf::violation;
 use pf::class;
 use Cache::FileCache;
-use pf::sms_activation;
+use pf::activation;
 use pf::os;
 use List::MoreUtils qw(any);
 
@@ -272,6 +271,7 @@ sub checkIfNeedsToRegister : Private {
     $c->stash(unreg => $unreg,);
     if ($unreg && isenabled($Config{'trapping'}{'registration'})) {
 
+        $logger->info("$mac redirected to ".$profile->name);
         # Redirect to the billing engine if enabled
         if (isenabled($portalSession->profile->getBillingEngine)) {
             $logger->info("$mac redirected to billing page");
@@ -307,7 +307,7 @@ sub checkIfPending : Private {
     my $node_info     = node_view($mac);
     my $request       = $c->request;
     if ( $node_info && $node_info->{'status'} eq $pf::node::STATUS_PENDING ) {
-        if ( pf::sms_activation::sms_activation_has_entry($mac) ) {
+        if ( pf::activation::activation_has_entry($mac,'sms') ) {
             node_deregister($mac);
             $c->stash(
                 template => 'guest/sms_confirmation.html',
@@ -320,7 +320,7 @@ sub checkIfPending : Private {
                   . $Config{'general'}{'hostname'} . "."
                   . $Config{'general'}{'domain'}
                   . '/captive-portal?destination_url='
-                  . uri_escape( $portalSession->getDestinationUrl ) );
+                  . uri_escape( $portalSession->_build_destinationUrl ) );
         } else {
             $c->stash(
                 template => 'pending.html',
@@ -431,22 +431,6 @@ sub release_with_android : Private {
     $c->stash( template => 'release_with_android.html');
 }
 
-=head2 proxy_redirect
-
-Mod_proxy redirect
-
-=cut
-
-sub proxy_redirect {
-    my ( $r, $url ) = @_;
-    my $logger = get_logger;
-    $r->set_handlers( PerlResponseHandler => [] );
-    $r->filename( "proxy:" . $url );
-    $r->proxyreq(2);
-    $r->handler('proxy-server');
-    return Apache2::Const::OK;
-}
-
 sub getSubTemplate {
     my ( $self, $c, $template ) = @_;
     my $portalSession = $c->portalSession;
@@ -508,28 +492,6 @@ sub maxRegNodesReached : Private {
     $self->showError($c, "You have reached the maximum number of devices you are able to register with this username.");
 }
 
-
-
-sub web_user_authenticate : Private {
-    my ( $self, $c ) = @_;
-    my $profile = $c->profile;
-    my $request = $c->request;
-    my $logger = get_logger;
-    $logger->trace("authentication attempt");
-
-    my @sources = ($profile->getInternalSources, $profile->getExclusiveSources);
-    my $username = $request->param("username");
-    my $password = $request->param("password");
-
-    # validate login and password
-    my ($return, $message, $source_id) = pf::authentication::authenticate($username, $password, @sources);
-
-    if (defined($return) && $return == 1) {
-        # save login into session
-        $c->session->{"username"} = $username;
-    }
-    return ($return, $message, $source_id);
-}
 
 
 =head2 default
