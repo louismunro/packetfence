@@ -33,6 +33,27 @@ sub description { 'EdgeCore' }
 =cut
 sub supportsWiredMacAuth { return $TRUE; }
 
+=item bouncePort
+
+Performs a shut / no-shut on the port.
+Used to force the operating system to do a new DHCP Request after a VLAN change.
+
+=cut
+
+sub bouncePort {
+    my ($this, $ifIndex) = @_;
+
+    # We sleep a second here so that the redirection page has time to load.
+    # In testing we had cases where the port was shut too quickly for the page
+    # to have time to load. Adjust to taste.
+    # This whole method is only required because RADIUS CoA is not working properly.
+    sleep 1;
+    $this->setAdminStatus( $ifIndex, $SNMP::DOWN );
+    sleep($Config{'vlan'}{'bounce_duration'});
+    $this->setAdminStatus( $ifIndex, $SNMP::UP );
+
+    return $TRUE;
+}
 =back
 
 =head1 AUTHOR
