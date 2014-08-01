@@ -245,7 +245,7 @@ sub _deauthenticateMacWithSOAP {
     );
 
     my $HP_default_port = 448;
-    my $soap_port = $this->{'_wsPort'} || $HP_default_port; 
+    my $soap_port = $this->{'_controllerPort'} || $HP_default_port; 
     my $ip = $this->{'_controllerIp'} // $this->{'_ip'};
     my $authentication = '';
     if ( $this->{'_wsUser'} and $this->{'_wsPwd'} ) { 

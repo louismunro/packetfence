@@ -252,7 +252,6 @@ sub new {
         '_wsPwd'                    => undef,
         '_wsUser'                   => undef,
         '_wsTransport'              => undef,
-        '_wsPort'                   => undef,
         '_radiusSecret'             => undef,
         '_controllerIp'             => undef,
         '_controllerPort'           => undef,
@@ -329,8 +328,6 @@ sub new {
             $this->{_wsUser} = $argv{$_};
         } elsif (/^-?wsTransport$/i) {
             $this->{_wsTransport} = lc($argv{$_});
-        } elsif (/^-?wsPort$/i) {
-            $this->{_wsPort} = lc($argv{$_});
         } elsif (/^-?radiusSecret$/i) {
             $this->{_radiusSecret} = $argv{$_};
         } elsif (/^-?controllerIp$/i) {
