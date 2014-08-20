@@ -345,9 +345,8 @@ sub new {
             case "rolemap"                  { $this->{_RoleMap}                  = $argv{$key} }
             case "accesslistmap"            { $this->{_AccessListMap}            = $argv{$key} }
             case "access_lists"             { $this->{_access_lists}             = $argv{$key} }
-            # customVlan members are now dynamically generated. 0 to 99 supported.
             case /^(\w+)Vlan$/i             { $this->{ '_' . $1 . 'Vlan' }       = $argv{$key} }
-
+            else                            { $logger->warn("Unknown attribute $key for switch.") } 
         }
     }
     return $this;
