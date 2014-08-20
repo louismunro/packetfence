@@ -20,6 +20,7 @@ use Data::Dumper;
 use Net::SNMP;
 use Log::Log4perl;
 use Try::Tiny;
+use Switch;
 
 our $VERSION = 2.10;
 
@@ -290,111 +291,64 @@ sub new {
         '_RoleMap'                  => 'enabled',
     }, $class;
 
-    foreach ( keys %argv ) {
-        if (/^-?SNMPCommunityRead$/i) {
-            $this->{_SNMPCommunityRead} = $argv{$_};
-        } elsif (/^-?SNMPCommunityTrap$/i) {
-            $this->{_SNMPCommunityTrap} = $argv{$_};
-        } elsif (/^-?SNMPCommunityWrite$/i) {
-            $this->{_SNMPCommunityWrite} = $argv{$_};
-        } elsif (/^-?id$/i) {
-            $this->{_id} = $argv{$_};
-        } elsif (/^-?macSearchesMaxNb$/i) {
-            $this->{_macSearchesMaxNb} = $argv{$_};
-        } elsif (/^-?macSearchesSleepInterval$/i) {
-            $this->{_macSearchesSleepInterval} = $argv{$_};
-        } elsif (/^-?mode$/i) {
-            $this->{_mode} = $argv{$_};
-        } elsif (/^-?SNMPAuthPasswordRead$/i) {
-            $this->{_SNMPAuthPasswordRead} = $argv{$_};
-        } elsif (/^-?SNMPAuthPasswordTrap$/i) {
-            $this->{_SNMPAuthPasswordTrap} = $argv{$_};
-        } elsif (/^-?SNMPAuthPasswordWrite$/i) {
-            $this->{_SNMPAuthPasswordWrite} = $argv{$_};
-        } elsif (/^-?SNMPAuthProtocolRead$/i) {
-            $this->{_SNMPAuthProtocolRead} = $argv{$_};
-        } elsif (/^-?SNMPAuthProtocolTrap$/i) {
-            $this->{_SNMPAuthProtocolTrap} = $argv{$_};
-        } elsif (/^-?SNMPAuthProtocolWrite$/i) {
-            $this->{_SNMPAuthProtocolWrite} = $argv{$_};
-        } elsif (/^-?SNMPPrivPasswordRead$/i) {
-            $this->{_SNMPPrivPasswordRead} = $argv{$_};
-        } elsif (/^-?SNMPPrivPasswordTrap$/i) {
-            $this->{_SNMPPrivPasswordTrap} = $argv{$_};
-        } elsif (/^-?SNMPPrivPasswordWrite$/i) {
-            $this->{_SNMPPrivPasswordWrite} = $argv{$_};
-        } elsif (/^-?SNMPPrivProtocolRead$/i) {
-            $this->{_SNMPPrivProtocolRead} = $argv{$_};
-        } elsif (/^-?SNMPPrivProtocolTrap$/i) {
-            $this->{_SNMPPrivProtocolTrap} = $argv{$_};
-        } elsif (/^-?SNMPPrivProtocolWrite$/i) {
-            $this->{_SNMPPrivProtocolWrite} = $argv{$_};
-        } elsif (/^-?SNMPUserNameRead$/i) {
-            $this->{_SNMPUserNameRead} = $argv{$_};
-        } elsif (/^-?SNMPUserNameTrap$/i) {
-            $this->{_SNMPUserNameTrap} = $argv{$_};
-        } elsif (/^-?SNMPUserNameWrite$/i) {
-            $this->{_SNMPUserNameWrite} = $argv{$_};
-        } elsif (/^-?cliEnablePwd$/i) {
-            $this->{_cliEnablePwd} = $argv{$_};
-        } elsif (/^-?cliPwd$/i) {
-            $this->{_cliPwd} = $argv{$_};
-        } elsif (/^-?cliUser$/i) {
-            $this->{_cliUser} = $argv{$_};
-        } elsif (/^-?cliTransport$/i) {
-            $this->{_cliTransport} = $argv{$_};
-        } elsif (/^-?wsPwd$/i) {
-            $this->{_wsPwd} = $argv{$_};
-        } elsif (/^-?wsUser$/i) {
-            $this->{_wsUser} = $argv{$_};
-        } elsif (/^-?wsTransport$/i) {
-            $this->{_wsTransport} = lc($argv{$_});
-        } elsif (/^-?radiusSecret$/i) {
-            $this->{_radiusSecret} = $argv{$_};
-        } elsif (/^-?controllerIp$/i) {
-            $this->{_controllerIp} = $argv{$_}? lc($argv{$_}) : undef;
-        } elsif (/^-?controllerPort$/i) {
-            $this->{_controllerPort} = $argv{$_};
-        } elsif (/^-?uplink$/i) {
-            $this->{_uplink} = $argv{$_};
-        } elsif (/^-?SNMPEngineID$/i) {
-            $this->{_SNMPEngineID} = $argv{$_};
-        } elsif (/^-?SNMPVersion$/i) {
-            $this->{_SNMPVersion} = $argv{$_};
-        } elsif (/^-?SNMPVersionTrap$/i) {
-            $this->{_SNMPVersionTrap} = $argv{$_};
-        } elsif (/^-?vlans$/i) {
-            $this->{_vlans} = $argv{$_};
-        } elsif (/^-?VoIPEnabled$/i) {
-            $this->{_VoIPEnabled} = $argv{$_};
-        } elsif (/^-?roles$/i) {
-            $this->{_roles} = $argv{$_};
-        } elsif (/^-?inlineTrigger$/i) {
-            $this->{_inlineTrigger} = $argv{$_};
-        } elsif (/^-?deauthMethod$/i) {
-            $this->{_deauthMethod} = $argv{$_};
-        } elsif (/^-?(ip)$/i) {
-            $this->{_ip} = $argv{$_};
-        } elsif (/^-?(switchIp)$/i) {
-            $this->{_switchIp} = $argv{$_};
-        } elsif (/^-?switchMac$/i) {
-            $this->{_switchMac} = $argv{$_};
-        } elsif (/^-?portalURL$/i) {
-            $this->{_portalURL} = $argv{$_};
-        } elsif (/^-?VlanMap$/i) {
-            $this->{_VlanMap} = $argv{$_};
-        } elsif (/^-?RoleMap$/i) {
-            $this->{_RoleMap} = $argv{$_};
-        } elsif (/^-?AccessListMap$/i) {
-            $this->{_AccessListMap} = $argv{$_};
-        } elsif (/^-?access_lists$/i) {
-            $this->{_access_lists} = $argv{$_};
-        }
-        # customVlan members are now dynamically generated. 0 to 99 supported.
-        elsif (/^-?(\w+)Vlan$/i) {
-            $this->{'_'.$1.'Vlan'} = $argv{$_};
-        }
+    foreach my $key ( keys %argv ) {
 
+        switch ( lc $key ) {
+
+            case "snmpcommunityread"        { $this->{_SNMPCommunityRead}        = $argv{$key} }
+            case "snmpcommunityread"        { $this->{_SNMPCommunityRead}        = $argv{$key} }
+            case "snmpcommunitytrap"        { $this->{_SNMPCommunityTrap}        = $argv{$key} }
+            case "snmpcommunitywrite"       { $this->{_SNMPCommunityWrite}       = $argv{$key} }
+            case "id"                       { $this->{_id}                       = $argv{$key} }
+            case "macsearchesmaxnb"         { $this->{_macSearchesMaxNb}         = $argv{$key} }
+            case "macsearchessleepinterval" { $this->{_macSearchesSleepInterval} = $argv{$key} }
+            case "mode"                     { $this->{_mode}                     = $argv{$key} }
+            case "snmpauthpasswordread"     { $this->{_SNMPAuthPasswordRead}     = $argv{$key} }
+            case "snmpauthpasswordtrap"     { $this->{_SNMPAuthPasswordTrap}     = $argv{$key} }
+            case "snmpauthpasswordwrite"    { $this->{_SNMPAuthPasswordWrite}    = $argv{$key} }
+            case "snmpauthprotocolread"     { $this->{_SNMPAuthProtocolRead}     = $argv{$key} }
+            case "snmpauthprotocoltrap"     { $this->{_SNMPAuthProtocolTrap}     = $argv{$key} }
+            case "snmpauthprotocolwrite"    { $this->{_SNMPAuthProtocolWrite}    = $argv{$key} }
+            case "snmpprivpasswordread"     { $this->{_SNMPPrivPasswordRead}     = $argv{$key} }
+            case "snmpprivpasswordtrap"     { $this->{_SNMPPrivPasswordTrap}     = $argv{$key} }
+            case "snmpprivpasswordwrite"    { $this->{_SNMPPrivPasswordWrite}    = $argv{$key} }
+            case "snmpprivprotocolread"     { $this->{_SNMPPrivProtocolRead}     = $argv{$key} }
+            case "snmpprivprotocoltrap"     { $this->{_SNMPPrivProtocolTrap}     = $argv{$key} }
+            case "snmpprivprotocolwrite"    { $this->{_SNMPPrivProtocolWrite}    = $argv{$key} }
+            case "snmpusernameread"         { $this->{_SNMPUserNameRead}         = $argv{$key} }
+            case "snmpusernametrap"         { $this->{_SNMPUserNameTrap}         = $argv{$key} }
+            case "snmpusernamewrite"        { $this->{_SNMPUserNameWrite}        = $argv{$key} }
+            case "clienablepwd"             { $this->{_cliEnablePwd}             = $argv{$key} }
+            case "clipwd"                   { $this->{_cliPwd}                   = $argv{$key} }
+            case "cliuser"                  { $this->{_cliUser}                  = $argv{$key} }
+            case "clitransport"             { $this->{_cliTransport}             = $argv{$key} }
+            case "wspwd"                    { $this->{_wsPwd}                    = $argv{$key} }
+            case "wsuser"                   { $this->{_wsUser}                   = $argv{$key} }
+            case "wstransport"              { $this->{_wsTransport}              = lc( $argv{$key} ) }
+            case "radiussecret"             { $this->{_radiusSecret}             = $argv{$key} }
+            case "controllerip"             { $this->{_controllerIp}             = $argv{$key} ? lc( $argv{$key} ) : undef }
+            case "controllerport"           { $this->{_controllerPort}           = $argv{$key} }
+            case "uplink"                   { $this->{_uplink}                   = $argv{$key} }
+            case "snmpengineid"             { $this->{_SNMPEngineID}             = $argv{$key} }
+            case "snmpversion"              { $this->{_SNMPVersion}              = $argv{$key} }
+            case "snmpversiontrap"          { $this->{_SNMPVersionTrap}          = $argv{$key} }
+            case "vlans"                    { $this->{_vlans}                    = $argv{$key} }
+            case "voipenabled"              { $this->{_VoIPEnabled}              = $argv{$key} }
+            case "roles"                    { $this->{_roles}                    = $argv{$key} }
+            case "inlinetrigger"            { $this->{_inlineTrigger}            = $argv{$key} }
+            case "deauthmethod"             { $this->{_deauthMethod}             = $argv{$key} }
+            case "(ip)"                     { $this->{_ip}                       = $argv{$key} }
+            case "(switchip)"               { $this->{_switchIp}                 = $argv{$key} }
+            case "switchmac"                { $this->{_switchMac}                = $argv{$key} }
+            case "portalurl"                { $this->{_portalURL}                = $argv{$key} }
+            case "vlanmap"                  { $this->{_VlanMap}                  = $argv{$key} }
+            case "rolemap"                  { $this->{_RoleMap}                  = $argv{$key} }
+            case "accesslistmap"            { $this->{_AccessListMap}            = $argv{$key} }
+            case "access_lists"             { $this->{_access_lists}             = $argv{$key} }
+            # customVlan members are now dynamically generated. 0 to 99 supported.
+            case /^(\w+)Vlan$/i             { $this->{ '_' . $1 . 'Vlan' }       = $argv{$key} }
+
+        }
     }
     return $this;
 }
