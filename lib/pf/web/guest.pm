@@ -45,7 +45,7 @@ BEGIN {
 }
 
 use pf::config;
-use pf::temporary_password 1.11;
+use pf::temporary_password 2.01;
 use pf::util;
 use pf::web qw(i18n ni18n i18n_format render_template);
 use pf::web::constants;

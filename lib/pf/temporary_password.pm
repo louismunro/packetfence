@@ -30,7 +30,6 @@ in your apache config.
 =cut
 
 #TODO rename to temporary_credentials to better reflect what this is about
-#TODO properly hash passwords (1000 SHA1 iterations of salt + password)
 use strict;
 use warnings;
 
@@ -44,7 +43,7 @@ use Switch;
 use pf::nodecategory;
 use pf::Authentication::constants;
 
-our $VERSION = 1.11;
+our $VERSION = 2.01;
 
 # Constants
 use constant TEMPORARY_PASSWORD => 'temporary_password';
@@ -73,6 +72,7 @@ BEGIN {
         create match_by_mail
         validate_password
         bcrypt
+        reset_password
         $AUTH_SUCCESS $AUTH_FAILED_INVALID $AUTH_FAILED_EXPIRED $AUTH_FAILED_NOT_YET_VALID
     );
 }
@@ -190,21 +190,6 @@ sub view_email {
     return ($ref);
 }
 
-=item add
-
-add a temporary password record to the database
-
-=cut
-
-#sub add {
-#    my (%data) = @_;
-#
-#    return(db_data(TEMPORARY_PASSWORD, $temporary_password_statements,
-#        'temporary_password_add_sql',
-#        $data{'pid'}, $data{'password'}, $data{'valid_from'}, $data{'expiration'}, $data{'access_duration'}
-#    ));
-#}
-
 =item _delete
 
 _delete a temporary password record
@@ -256,49 +241,22 @@ Generates a temporary password and add it to the temporary password table.
 
 Returns the temporary password
 
-Optional arguments:
-
-=over
-
-=item expiration date
-
-Credentials won't work after expiration date
-
-Defaults to module's default (31 days)
-
-=item valid from date
-
-Credentials won't work before valid_from date
-
-Defaults to 0 (works now)
-
-=item acess duration
-
-On login, how long should this user has access?
-
-Defaults to 0 (no per user limit)
-
-=back
-
 =cut
 
 sub generate {
-    my ($pid, $actions, $password) = @_;
+    my ($pid, $actions, $plaintext) = @_;
     my $logger = Log::Log4perl::get_logger(__PACKAGE__);
 
     my %data;
     $data{'pid'} = $pid;
 
     # generate password
-    if ( $Config{'database'}{'hash_passwords'} eq 'plaintext' ) { 
-        $data{'password'} = $password || _generate_password();
-    } else { 
-        $data{'password'} = _hash_password(
-             $password || _generate_password(), 
-             algorithm => $Config{'database'}{'hash_passwords'},
-        );
-    }
-             
+    $plaintext =||  _generate_password();
+    $data{'password'} = 
+        _hash_password(
+            $plaintext, 
+            algorithm => $Config{'database'}{'hash_passwords'},
+    );
 
     _update_from_actions(\%data, $actions);
 
@@ -314,7 +272,7 @@ sub generate {
         return;
     } else {
         $logger->info("new temporary account successfully generated");
-        return $password;
+        return $plaintext;
     }
 }
 
@@ -476,6 +434,7 @@ sub _check_password {
         case /$md5_re/    { return undef }
         case /$nthash_re/ { return undef }
         else {
+            # the only thing left is plaintext
             return $plaintext eq $hash_string ? $TRUE : $FALSE;
         }
     }
@@ -540,8 +499,7 @@ sub bcrypt {
 
     # A bcrypt hash looks like this:
     # '$2a$05$1kdrBExRmcKCcDlNSKHREutpl02jsbx7.ug5C3SZ86N1QhqUF.aSW'
-    # where '$2a$' is the bcrypt prefix, 05 is the work factor, and the rest (after the final $)
-    # is the bcrypt base64 encoded salt (first 22 char) followed by the bcrypt base64 encoded hash value.
+    #  to which we add the prefix {bcrypt} to be able to distinguish it from other hashes
     my $hash     = bcrypt_hash( { key_nul => 1, cost => $cost, salt => $salt, }, $plaintext );
     my $hash_str = en_base64($hash);
     my $cost_str = sprintf( "%02d", $cost ) . '$';
@@ -556,14 +514,17 @@ Reset (change) a password for a user in the temporary_password table.
 =cut
 
 sub reset_password {
-    my ( $pid, $password ) = @_;
+    my ( $pid, $plaintext ) = @_;
     my $logger = Log::Log4perl::get_logger(__PACKAGE__);
 
     # Making sure pid/password are "ok"
-    if ( !defined($pid) || !defined($password) || (length($pid) == 0) || (length($password) == 0) ) {
-        $logger->error("Error while resetting the user password. Missing values.");
+    if ( !defined($pid) || !defined($plaintext) || (length($pid) == 0) || (length($plaintext) == 0) ) {
+        $logger->error("Error while resetting the password for $pid. Missing values.");
         return;
     }
+             
+    my $password = 
+        _hash_password( $plaintext, algorithm => $Config{'database'}{'hash_passwords'});
 
     db_query_execute(
         TEMPORARY_PASSWORD, $temporary_password_statements, 'temporary_password_reset_password_sql', $password, $pid
@@ -578,7 +539,7 @@ Inverse inc. <info@inverse.ca>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2005-2013 Inverse inc.
+Copyright (C) 2005-2014 Inverse inc.
 
 =head1 LICENSE
 
