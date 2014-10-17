@@ -15,6 +15,8 @@ ATTRIBUTE       PacketFence-RPC-Port                   2       string
 ATTRIBUTE       PacketFence-RPC-User                   3       string
 ATTRIBUTE       PacketFence-RPC-Pass                   4       string
 ATTRIBUTE       PacketFence-RPC-Proto                  5       string
+ATTRIBUTE       PacketFence-StatsD-Host                6       string
+ATTRIBUTE       PacketFence-StatsD-Port                7       string
 
 END-VENDOR      Inverse
 
