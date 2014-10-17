@@ -32,27 +32,32 @@ use vars qw(%RAD_REQUEST %RAD_REPLY %RAD_CHECK);
 #
 # This the remapping of return values
 #
-	use constant    RLM_MODULE_REJECT=>    0;#  /* immediately reject the request */
-	use constant	RLM_MODULE_FAIL=>      1;#  /* module failed, don't reply */
-	use constant	RLM_MODULE_OK=>        2;#  /* the module is OK, continue */
-	use constant	RLM_MODULE_HANDLED=>   3;#  /* the module handled the request, so stop. */
-	use constant	RLM_MODULE_INVALID=>   4;#  /* the module considers the request invalid. */
-	use constant	RLM_MODULE_USERLOCK=>  5;#  /* reject the request (user is locked out) */
-	use constant	RLM_MODULE_NOTFOUND=>  6;#  /* user not found */
-	use constant	RLM_MODULE_NOOP=>      7;#  /* module succeeded without doing anything */
-	use constant	RLM_MODULE_UPDATED=>   8;#  /* OK (pairs modified) */
-	use constant	RLM_MODULE_NUMCODES=>  9;#  /* How many return codes there are */
+use constant    RLM_MODULE_REJECT=>    0;#  /* immediately reject the request */
+use constant	RLM_MODULE_FAIL=>      1;#  /* module failed, don't reply */
+use constant	RLM_MODULE_OK=>        2;#  /* the module is OK, continue */
+use constant	RLM_MODULE_HANDLED=>   3;#  /* the module handled the request, so stop. */
+use constant	RLM_MODULE_INVALID=>   4;#  /* the module considers the request invalid. */
+use constant	RLM_MODULE_USERLOCK=>  5;#  /* reject the request (user is locked out) */
+use constant	RLM_MODULE_NOTFOUND=>  6;#  /* user not found */
+use constant	RLM_MODULE_NOOP=>      7;#  /* module succeeded without doing anything */
+use constant	RLM_MODULE_UPDATED=>   8;#  /* OK (pairs modified) */
+use constant	RLM_MODULE_NUMCODES=>  9;#  /* How many return codes there are */
 
 
 use lib '/usr/local/pf/lib';
-use SyS::Hostname;
+use Sys::Hostname;
+use Etsy::StatsD;
+
+# Edit these constants to point to your statsd server.
+use constant PacketFence_StatsD_Host =>  '127.0.0.1';
+use constant PacketFence_StatsD_Port =>  8125;  
 
 my $statsd = Etsy::StatsD->new(
-    $RAD_CONFIG{PacketFence-StatsD-Host},
-    $RAD_CONFIG{PacketFence-StatsD-Host},
+    PacketFence_StatsD_Host,
+    PacketFence_StatsD_Port,
 );
 
-my $shortname = (split('.', hostname))[0];
+my $shortname = (split('\.', hostname))[0];
 my $graphite_namespace = 'pf.' . $shortname . '.radius.';
 
 # Function to handle authorize

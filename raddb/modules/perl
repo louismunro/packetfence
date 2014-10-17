@@ -6,6 +6,6 @@ perl packetfence-soh {
 	module = ${confdir}/packetfence-soh.pm
 }
 
-perl statds {
+perl statsd {
 	module = ${confdir}/statsd.pm
 }
