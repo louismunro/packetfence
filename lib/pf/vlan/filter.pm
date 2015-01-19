@@ -17,10 +17,9 @@ use warnings;
 
 use Log::Log4perl;
 use Time::Period;
-use pf::api::jsonrpcclient;
 use pf::config qw(%connection_type_to_str);
 use pf::person qw(person_view);
-our (%ConfigVlanFilters, $cached_vlan_filters_config);
+our ( %ConfigVlanFilters, $cached_vlan_filters_config );
 
 readVlanFiltersFile();
 
@@ -33,11 +32,11 @@ readVlanFiltersFile();
 =cut
 
 sub new {
-   my $logger = Log::Log4perl::get_logger("pf::vlan::filter");
-   $logger->debug("instantiating new pf::vlan::filter");
-   my ( $class, %argv ) = @_;
-   my $self = bless {}, $class;
-   return $self;
+    my $logger = Log::Log4perl::get_logger("pf::vlan::filter");
+    $logger->debug("instantiating new pf::vlan::filter");
+    my ( $class, %argv ) = @_;
+    my $self = bless {}, $class;
+    return $self;
 }
 
 =item test
@@ -47,138 +46,94 @@ Test all the rules
 =cut
 
 sub test {
-    my ($self, $scope, $switch,$ifIndex,$mac,$node_info,$connection_type,$user_name,$ssid,$radius_request) = @_;
+    my ($self,      $scope,           $switch,    $ifIndex, $mac,
+        $node_info, $connection_type, $user_name, $ssid,    $radius_request
+    ) = @_;
     my $logger = Log::Log4perl::get_logger( ref($self) );
 
-    foreach my $rule  ( sort keys %ConfigVlanFilters ) {
-        if ( defined($ConfigVlanFilters{$rule}->{'scope'}) && $ConfigVlanFilters{$rule}->{'scope'} eq $scope) {
-            if ($rule =~ /^\w+:(.*)$/) {
-                my $test = $1;
-                $test =~ s/(\w+)/$self->dispatchRule($ConfigVlanFilters{$1},$switch,$ifIndex,$mac,$node_info,$connection_type,$user_name,$ssid,$radius_request,$1)/gee;
-                $test =~ s/\|/ \|\| /g;
-                $test =~ s/\&/ \&\& /g;
-                if (eval $test) {
-                    $logger->info("Match Vlan rule: ".$rule." for ".$mac);
-                    if ( defined($ConfigVlanFilters{$rule}->{'action'}) && $ConfigVlanFilters{$rule}->{'action'} ne '' ) {
-                        $self->dispatchAction($ConfigVlanFilters{$rule},$switch,$ifIndex,$mac,$node_info,$connection_type,$user_name,$ssid,$radius_request)
-                    }
-                    if ( defined($ConfigVlanFilters{$rule}->{'role'}) && $ConfigVlanFilters{$rule}->{'role'} ne '' ) {
-                        my $role = $ConfigVlanFilters{$rule}->{'role'};
-                        my $vlan = $switch->getVlanByName($role);
-                        return ($vlan, $role);
-                    } else {
-                        return (0,0);
-                    }
+    foreach my $rule ( sort keys %ConfigVlanFilters ) {
+
+        if ( defined( $ConfigVlanFilters{$rule}->{'scope'} )
+            && $ConfigVlanFilters{$rule}->{'scope'} eq $scope )
+        {
+            my ( $index, $test ) = split( ':', $rule );
+            if ( defined $test ) {
+
+                my $boolean = $self->dispatch_rule(
+                    $ConfigVlanFilters{$test},
+                    $switch, $ifIndex, $mac, $node_info, $connection_type_to_str{$connection_type},
+                    $user_name, $ssid, $radius_request, $test
+                );
+
+                if ( eval $boolean ) {
+                    $logger->info( "Match Vlan rule: " . $rule . " for " . $mac );
+                    my $role = $ConfigVlanFilters{$rule}->{'role'};
+
+                    #TODO Add action that can be sent to the WebAPI
+                    my $vlan = $switch->getVlanByName($role);
+                    return ( $vlan, $role );
                 }
             }
         }
     }
 }
 
-our %RULE_PARSERS = (
-    node_info => \&node_info_parser,
-    switch  => \&switch_parser,
-    ifIndex  => \&ifindex_parser,
-    mac  => \&mac_parser,
-    connection_type  => \&connection_type_parser,
-    username  => \&username_parser,
-    ssid  => \&ssid_parser,
-    time => \&time_parser,
-    owner => \&owner_parser,
-    radius_request => \&radius_parser,
-);
+=item dispatch_rules
 
-=item dispatchRule
-
-Return the reference to the function that parses the rule.
+Return a boolean expression encoding the rule to evaluate.
+E.g. "1||0" or "1&&1||0".
 
 =cut
 
-sub dispatchRule {
-    my ($self, $rule, $switch, $ifIndex, $mac, $node_info, $connection_type, $user_name, $ssid, $radius_request, $name) = @_;
+our $disp_table = {
+    node_info       => \&node_info_parser,
+    switch          => \&switch_parser,
+    ifIndex         => \&ifindex_parser,
+    mac             => \&mac_parser,
+    connection_type => \&connection_type_parser,
+    username        => \&username_parser,
+    ssid            => \&ssid_parser,
+    time            => \&time_parser,
+    owner           => \&owner_parser,
+    radius_request  => \&radius_parser,
+};
+
+sub dispatch_rule {
+    my ( $self, $rule, $switch, $ifIndex, $mac, $node_info, $connection_type, $user_name, $ssid,
+        $radius_request, $name )
+        = @_;
     my $logger = Log::Log4perl::get_logger( ref($self) );
 
-    if (!defined($rule)) {
-        $logger->error("The rule $name you try to test doesn´t exist");
+    if ( @_ < 11 ) {
+        $logger->error("Missing arguments to dispatch rule $rule");
+        return 0;
     }
 
-    return $RULE_PARSERS{$rule->{'filter'}}->($self, $rule, $switch, $ifIndex, $mac, $node_info, $connection_type, $user_name, $ssid, $radius_request);
+
+    my $bool = $disp_table->{ $rule->{'filter'} }->(@_);
+    $bool =~ s/\d([|&])\d/$1$1/g;    # replace | and & with || and &&
+    return $bool;
 }
 
-=item dispatchAction
+=item generic_matcher
 
-Return the reference to the function that call the api.
+Parse the operator and compare the operands to the rule. If it matches then return 1.
 
 =cut
 
-sub dispatchAction {
-    my ($self, $rule, $switch, $ifIndex, $mac, $node_info, $connection_type, $user_name, $ssid, $radius_request) = @_;
+sub generic_matcher {
+    my ( $self, $rule, $operand ) = @_;
 
-    my $param = $self->evalParam($rule->{'action_param'},$switch, $ifIndex, $mac, $node_info, $connection_type, $user_name, $ssid, $radius_request);
-    my $apiclient = pf::api::jsonrpcclient->new;
-    $apiclient->notify($rule->{'action'},%{$$param});
-}
-
-=item evalParam
-
-evaluate action parameters
-
-=cut
-
-sub evalParam {
-    my ($self, $action_param, $switch, $ifIndex, $mac, $node_info, $connection_type, $user_name, $ssid, $radius_request) = @_;
-    $action_param =~ s/\s//g;
-    my @params = split(',', $action_param);
-    my $return = {};
-
-    foreach my $param (@params) {
-        $param =~ s/(\$.*)/$1/gee;
-        my @param_unit = split('=',$param);
-        $return = { %$return, @param_unit };
+    # evaluate the operator and return either 1 or 0 ( NOT true or false )
+    use Switch; #  perl switch, not pf::switch. 
+    switch ( $rule->{'operator'} ) {
+        case 'is'        { $operand eq $rule->{'value'}    ? 1 : 0 }
+        case 'is_not'    { $operand ne $rule->{'value'}    ? 1 : 0 }
+        case 'match'     { $operand =~ m/$rule->{'value'}/ ? 1 : 0 }
+        case 'match_not' { $operand !~ m/$rule->{'value'}/ ? 1 : 0 }
+        else             { return 0 }
     }
-    return \$return;
 }
-
-our %RULE_OPS = (
-    is => sub { $_[0] eq $_[1] ? 1 : 0  },
-    is_not => sub { $_[0] ne $_[1] ? 1 : 0  },
-    match => sub { $_[0] =~ $_[1] ? 1 : 0  },
-    match_not => sub { $_[0] !~ $_[1] ? 1 : 0  },
-);
-
-=item _match_rule_against_hash
-
-Matches the rule against a hash
-
-=cut
-
-sub _match_rule_against_hash {
-    my ($self, $rule, $data) = @_;
-
-    if (defined($data)) {
-        return $self->_match_rule_against_value($rule,$data->{$rule->{'attribute'}});
-    }
-    return 0;
-}
-
-=item _match_rule_against_value
-
-Matches the rule against a value
-
-=cut
-
-sub _match_rule_against_value {
-    my ($self, $rule, $value) = @_;
-
-    if (defined($value)) {
-        my $op = $rule->{'operator'};
-        if ($op && exists $RULE_OPS{$op}) {
-            return $RULE_OPS{$op}->($value, $rule->{'value'});
-        }
-    }
-    return 0;
-}
-
 
 =item node_info_parser
 
@@ -187,8 +142,16 @@ Parse the node_info attribute and compare to the rule. If it matches then perfor
 =cut
 
 sub node_info_parser {
-    my ($self, $rule, $switch, $ifIndex, $mac, $node_info, $connection_type, $user_name, $ssid, $radius_request) = @_;
-    return $self->_match_rule_against_hash($rule,$node_info);
+    my ($self,      $rule,            $switch,    $ifIndex, $mac,
+        $node_info, $connection_type, $user_name, $ssid,    $radius_request
+    ) = @_;
+
+    if ( defined($node_info) ) {
+        return $self->generic_matcher( $rule, $node_info->{ $rule->{'attribute'} } );
+    }
+    else {
+        return 0;
+    }
 }
 
 =item radius_parser
@@ -198,8 +161,16 @@ Parse the RADIUS request attribute and compare to the rule. If it matches then p
 =cut
 
 sub radius_parser {
-    my ($self, $rule, $switch, $ifIndex, $mac, $node_info, $connection_type, $user_name, $ssid, $radius_request) = @_;
-    return $self->_match_rule_against_hash($rule,$radius_request);
+    my ($self,      $rule,            $switch,    $ifIndex, $mac,
+        $node_info, $connection_type, $user_name, $ssid,    $radius_request
+    ) = @_;
+
+    if ( defined($radius_request) ) {
+        return $self->generic_matcher( $rule, $radius_request->{ $rule->{'attribute'} } );
+    }
+    else {
+        return 0;
+    }
 }
 
 =item owner_parser
@@ -209,9 +180,18 @@ Parse the owner attribute and compare to the rule. If it matches then perform th
 =cut
 
 sub owner_parser {
-    my ($self, $rule, $switch, $ifIndex, $mac, $node_info, $connection_type, $user_name, $ssid, $radius_request) = @_;
-    my $owner = person_view($node_info->{'pid'});
-    return $self->_match_rule_against_hash($rule,$owner);
+    my ($self,      $rule,            $switch,    $ifIndex, $mac,
+        $node_info, $connection_type, $user_name, $ssid,    $radius_request
+    ) = @_;
+
+    my $owner = person_view( $node_info->{'pid'} );
+
+    if ( defined($owner) ) {
+        return $self->generic_matcher( $rule, $owner->{ $rule->{'attribute'} } );
+    }
+    else {
+        return 0;
+    }
 }
 
 =item switch_parser
@@ -221,8 +201,16 @@ Parse the switch attribute and compare to the rule. If it matches then return tr
 =cut
 
 sub switch_parser {
-    my ($self, $rule, $switch, $ifIndex, $mac, $node_info, $connection_type, $user_name, $ssid, $radius_request) = @_;
-    return $self->_match_rule_against_hash($rule,$switch);
+    my ($self,      $rule,            $switch,    $ifIndex, $mac,
+        $node_info, $connection_type, $user_name, $ssid,    $radius_request
+    ) = @_;
+
+    if ( defined($switch) ) {
+        return $self->generic_matcher( $rule, $switch->{ $rule->{'attribute'} } );
+    }
+    else {
+        return 0;
+    }
 }
 
 =item ifindex_parser
@@ -232,8 +220,16 @@ Parse the ifindex value and compare to the rule. If it matches then return true.
 =cut
 
 sub ifindex_parser {
-    my ($self, $rule, $switch, $ifIndex, $mac, $node_info, $connection_type, $user_name, $ssid, $radius_request) = @_;
-    return $self->_match_rule_against_value($rule,$ifIndex);
+    my ($self,      $rule,            $switch,    $ifIndex, $mac,
+        $node_info, $connection_type, $user_name, $ssid,    $radius_request
+    ) = @_;
+
+    if ( defined $ifIndex ) {
+        return $self->generic_matcher( $rule, $ifIndex );
+    }
+    else {
+        return 0;
+    }
 }
 
 =item mac_parser
@@ -243,8 +239,16 @@ Parse the mac value and compare to the rule. If it matches then return.
 =cut
 
 sub mac_parser {
-    my ($self, $rule, $switch, $ifIndex, $mac, $node_info, $connection_type, $user_name, $ssid, $radius_request) = @_;
-    return $self->_match_rule_against_value($rule,$mac);
+    my ($self,      $rule,            $switch,    $ifIndex, $mac,
+        $node_info, $connection_type, $user_name, $ssid,    $radius_request
+    ) = @_;
+
+    if ( defined($mac) ) {
+        return $self->generic_matcher( $rule, $mac );
+    }
+    else {
+        return 0;
+    }
 }
 
 =item connection_type_parser
@@ -254,8 +258,16 @@ Parse the connection_type value and compare to the rule. If it matches then retu
 =cut
 
 sub connection_type_parser {
-    my ($self, $rule, $switch, $ifIndex, $mac, $node_info, $connection_type, $user_name, $ssid, $radius_request) = @_;
-    return $self->_match_rule_against_value($rule,$connection_type_to_str{$connection_type});
+    my ($self,      $rule,            $switch,    $ifIndex, $mac,
+        $node_info, $connection_type, $user_name, $ssid,    $radius_request
+    ) = @_;
+
+    if ( defined($connection_type) ) {
+        return $self->generic_matcher( $rule, $connection_type_to_str{$connection_type} );
+    }
+    else {
+        return 0;
+    }
 }
 
 =item username_parser
@@ -265,8 +277,16 @@ Parse the username value and compare to the rule. If it matches then return true
 =cut
 
 sub username_parser {
-    my ($self, $rule, $switch, $ifIndex, $mac, $node_info, $connection_type, $user_name, $ssid, $radius_request) = @_;
-    return $self->_match_rule_against_value($rule,$user_name);
+    my ($self,      $rule,            $switch,    $ifIndex, $mac,
+        $node_info, $connection_type, $user_name, $ssid,    $radius_request
+    ) = @_;
+
+    if ( defined $user_name ) {
+        return $self->generic_matcher( $rule, $user_name );
+    }
+    else {
+        return 0;
+    }
 }
 
 =item ssid_parser
@@ -276,8 +296,16 @@ Parse the ssid valus and compare to the rule. If it matches then return true.
 =cut
 
 sub ssid_parser {
-    my ($self, $rule, $switch, $ifIndex, $mac, $node_info, $connection_type, $user_name, $ssid, $radius_request) = @_;
-    return $self->_match_rule_against_value($rule,$ssid);
+    my ($self,      $rule,            $switch,    $ifIndex, $mac,
+        $node_info, $connection_type, $user_name, $ssid,    $radius_request
+    ) = @_;
+
+    if ( defined($ssid) ) {
+        return $self->generic_matcher( $rule, $ssid );
+    }
+    else {
+        return 0;
+    }
 }
 
 =item time_parser
@@ -287,22 +315,28 @@ Check the current time and compare to the period
 =cut
 
 sub time_parser {
-    my ($self, $rule, $switch, $ifIndex, $mac, $node_info, $connection_type, $user_name, $ssid, $radius_request) = @_;
+    my ($self,      $rule,            $switch,    $ifIndex, $mac,
+        $node_info, $connection_type, $user_name, $ssid,    $radius_request
+    ) = @_;
 
     my $time = time();
-    if ($rule->{'operator'} eq 'is') {
-        if (inPeriod($time,$rule->{'value'})) {
+    if ( $rule->{'operator'} eq 'is' ) {
+        if ( inPeriod( $time, $rule->{'value'} ) ) {
             return 1;
-        } else {
+        }
+        else {
             return 0;
         }
-    } elsif ($rule->{'operator'} eq 'is_not') {
-        if (!inPeriod($time,$rule->{'value'})) {
+    }
+    elsif ( $rule->{'operator'} eq 'is_not' ) {
+        if ( !inPeriod( $time, $rule->{'value'} ) ) {
             return 1;
-        } else {
+        }
+        else {
             return 0;
         }
-    } else {
+    }
+    else {
         return 0;
     }
 }
@@ -313,15 +347,17 @@ sub time_parser {
 
 sub readVlanFiltersFile {
     $cached_vlan_filters_config = pf::config::cached->new(
-        -file => $vlan_filters_config_file,
+        -file       => $vlan_filters_config_file,
         -allowempty => 1,
-        -onreload => [ reload_vlan_filters_config => sub {
-            my ($config) = @_;
-            $config->toHash(\%ConfigVlanFilters);
-            $config->cleanupWhitespace(\%ConfigVlanFilters);
-        }]
+        -onreload   => [
+            reload_vlan_filters_config => sub {
+                my ($config) = @_;
+                $config->toHash( \%ConfigVlanFilters );
+                $config->cleanupWhitespace( \%ConfigVlanFilters );
+                }
+        ]
     );
-    if(@Config::IniFiles::errors) {
+    if (@Config::IniFiles::errors) {
         my $logger = Log::Log4perl::get_logger("pf::vlan::filter");
         $logger->logcroak( join( "\n", @Config::IniFiles::errors ) );
     }
@@ -332,6 +368,8 @@ sub readVlanFiltersFile {
 =head1 AUTHOR
 
 Inverse inc. <info@inverse.ca>
+
+Minor parts of this file may have been contributed. See CREDITS.
 
 =head1 COPYRIGHT
 
