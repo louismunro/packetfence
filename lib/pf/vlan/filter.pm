@@ -19,6 +19,7 @@ use Log::Log4perl;
 use Time::Period;
 use pf::config qw(%connection_type_to_str);
 use pf::person qw(person_view);
+use Switch; #  perl switch, not pf::switch. 
 our ( %ConfigVlanFilters, $cached_vlan_filters_config );
 
 readVlanFiltersFile();
@@ -125,7 +126,6 @@ sub generic_matcher {
     my ( $self, $rule, $operand ) = @_;
 
     # evaluate the operator and return either 1 or 0 ( NOT true or false )
-    use Switch; #  perl switch, not pf::switch. 
     switch ( $rule->{'operator'} ) {
         case 'is'        { $operand eq $rule->{'value'}    ? 1 : 0 }
         case 'is_not'    { $operand ne $rule->{'value'}    ? 1 : 0 }
