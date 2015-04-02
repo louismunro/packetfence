@@ -127,7 +127,6 @@ sub returnRadiusAccessAccept {
         return [$RADIUS::RLM_MODULE_OK, %$radius_reply_ref];
     }
 
-    # TODO this is experimental
     try {
 
         my $role = $this->getRoleByName($user_role);
@@ -137,7 +136,23 @@ sub returnRadiusAccessAccept {
             if ($node_info->{'status'} eq $pf::node::STATUS_REGISTERED) {
                 $radius_reply_ref = {
                     'User-Name' => $mac,
-                    $this->returnRoleAttribute => $role,
+                };
+                if ( isenabled($self->{_AccessListMap}) && $self->supportsAccessListBasedEnforcement ){
+                    if( defined($user_role) && $user_role ne ""){
+                        my $access_list = $self->getAccessListByName($user_role);
+                        my @av_pairs;
+                        while($access_list =~ /([^\n]+)\n?/g){
+                            push(@av_pairs, $self->returnAccessListAttribute."=".$1);
+                            $logger->info("[$mac] (".$self->{'_id'}.") Adding access list : $1 to the RADIUS reply");
+                        } 
+                        $radius_reply_ref->{'Cisco-AVPair'} = \@av_pairs; 
+                        $logger->info("[$mac] (".$self->{'_id'}.") Added access lists to the RADIUS reply.");
+                    }
+                }
+                else { 
+                    $radius_reply_ref = {
+                        $this->returnRoleAttribute => $role,
+                    }
                 };
             }
             else {
@@ -150,6 +165,18 @@ sub returnRadiusAccessAccept {
                     'User-Name' => $mac,
                     'Cisco-AVPair' => ["url-redirect-acl=$role","url-redirect=".$this->{'_portalURL'}."/cep$session_id{_session_id}"],
                 };
+                if ( isenabled($self->{_AccessListMap}) && $self->supportsAccessListBasedEnforcement ){
+                    if( defined($user_role) && $user_role ne ""){
+                        my $access_list = $self->getAccessListByName($user_role);
+                        my @av_pairs;
+                        while($access_list =~ /([^\n]+)\n?/g){
+                            push(@av_pairs, $self->returnAccessListAttribute."=".$1);
+                            $logger->info("[$mac] (".$self->{'_id'}.") Adding access list : $1 to the RADIUS reply");
+                        } 
+                        $radius_reply_ref->{'Cisco-AVPair'} = \@av_pairs; 
+                        $logger->info("[$mac] (".$self->{'_id'}.") Added access lists to the RADIUS reply.");
+                    }
+                }
             }
             $logger->info("[$mac] (".$this->{'_id'}.") Returning ACCEPT with Role: $role");
         }

@@ -502,18 +502,6 @@ sub returnRadiusAccessAccept {
     }
 
     
-    if ( isenabled($self->{_AccessListMap}) && $self->supportsAccessListBasedEnforcement ){
-        if( defined($user_role) && $user_role ne ""){
-            my $access_list = $self->getAccessListByName($user_role);
-            my @av_pairs;
-            while($access_list =~ /([^\n]+)\n?/g){
-                push(@av_pairs, $self->returnAccessListAttribute."=".$1);
-                $logger->info("[$mac] (".$self->{'_id'}.") Adding access list : $1 to the RADIUS reply");
-            } 
-            $radius_reply_ref->{'Cisco-AVPair'} = \@av_pairs; 
-            $logger->info("[$mac] (".$self->{'_id'}.") Added access lists to the RADIUS reply.");
-        }
-    }
     if ( isenabled($self->{_RoleMap}) && $self->supportsRoleBasedEnforcement()) {
         $logger->debug("[$mac] (".$self->{'_id'}.") Network device supports roles. Evaluating role to be returned");
         if ( defined($user_role) && $user_role ne "" ) {
