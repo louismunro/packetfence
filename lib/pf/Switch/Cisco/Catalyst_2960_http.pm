@@ -55,6 +55,7 @@ sub description { 'Cisco Catalyst 2960 with Web Auth' }
 sub supportsRoleBasedEnforcement { return $TRUE; }
 sub supportsExternalPortal { return $TRUE; }
 sub supportsWiredMacAuth { return $TRUE; }
+sub supportsAccessListBasedEnforcement { return $TRUE };
 
 # inline capabilities
 sub inlineCapabilities { return ($MAC,$SSID); }
@@ -110,106 +111,97 @@ Overide to support the captive portal special RADIUS accept
 =cut
 
 sub returnRadiusAccessAccept {
-    my ($this, $vlan, $mac, $port, $connection_type, $user_name, $ssid, $wasInline, $user_role) = @_;
+    my ( $this, $vlan, $mac, $port, $connection_type, $user_name, $ssid, $wasInline, $user_role ) = @_;
     my $logger = Log::Log4perl::get_logger( ref($this) );
 
+    my $node_info = node_view($mac);
+    my $role;
+
+    # default reply
     my $radius_reply_ref = {};
 
-    # If we're doing 802.1x then instead of doing web auth, we'll do classic VLAN isolation
-    # This allows to have different VLANs for the roles
-    if ($connection_type == $WIRED_802_1X){
-        $radius_reply_ref = {
-            'Tunnel-Medium-Type' => $RADIUS::ETHERNET,
-            'Tunnel-Type' => $RADIUS::VLAN,
-            'Tunnel-Private-Group-ID' => $vlan,
-        };
+    if ( defined($user_role) && $user_role ne "" ) { $role = $this->getRoleByName($user_role); }
 
-        return [$RADIUS::RLM_MODULE_OK, %$radius_reply_ref];
-    }
+    # REGISTERED DEVICES
+    if ( $node_info->{'status'} eq $pf::node::STATUS_REGISTERED ) {
 
-    try {
-
-        my $role = $this->getRoleByName($user_role);
-        # Roles are configured and the user should have one
-        if (defined($role)) {
-            my $node_info = node_view($mac);
-            if ($node_info->{'status'} eq $pf::node::STATUS_REGISTERED) {
-                $radius_reply_ref = {
-                    'User-Name' => $mac,
-                };
-                if ( isenabled($self->{_AccessListMap}) && $self->supportsAccessListBasedEnforcement ){
-                    if( defined($user_role) && $user_role ne ""){
-                        my $access_list = $self->getAccessListByName($user_role);
-                        my @av_pairs;
-                        while($access_list =~ /([^\n]+)\n?/g){
-                            push(@av_pairs, $self->returnAccessListAttribute."=".$1);
-                            $logger->info("[$mac] (".$self->{'_id'}.") Adding access list : $1 to the RADIUS reply");
-                        } 
-                        $radius_reply_ref->{'Cisco-AVPair'} = \@av_pairs; 
-                        $logger->info("[$mac] (".$self->{'_id'}.") Added access lists to the RADIUS reply.");
-                    }
+        # RETURN AN ACL
+        if ( isenabled( $this->{_AccessListMap} ) && $this->supportsAccessListBasedEnforcement ) {
+            $logger->debug( "[$mac] ("
+                    . $this->{'_id'}
+                    . ") Network device supports ACLs. Evaluating ACLs to be returned" );
+            if ( defined($user_role) && $user_role ne "" ) {
+                my $access_list = $this->getAccessListByName($user_role);
+                my @av_pairs;
+                while ( $access_list =~ /([^\n]+)\n?/g ) {
+                    push( @av_pairs, $this->returnAccessListAttribute . "=" . $1 );
+                    $logger->info(
+                        "[$mac] (" . $this->{'_id'} . ") Adding access list : $1 to the RADIUS reply" );
                 }
-                else { 
-                    $radius_reply_ref = {
-                        $this->returnRoleAttribute => $role,
-                    }
+                $radius_reply_ref->{'Cisco-AVPair'} = \@av_pairs;
+                $logger->info( "[$mac] (" . $this->{'_id'} . ") Added access lists to the RADIUS reply." );
+            }
+        }
+        # RETURN A ROLE
+        elsif ( isenabled( $this->{_RoleMap} ) && $this->supportsRoleBasedEnforcement() ) {
+            $logger->debug( "[$mac] ("
+                    . $this->{'_id'}
+                    . ") Network device supports roles. Evaluating role to be returned" );
+            if ( defined($role) && $role ne "" ) {
+                $radius_reply_ref->{ $this->returnRoleAttribute() } = $role;
+                $logger->info( "[$mac] ("
+                        . $this->{'_id'}
+                        . ") Added role $role to the returned RADIUS Access-Accept under attribute "
+                        . $this->returnRoleAttribute() );
+            }
+            else {
+                $logger->warn( "[$mac] ("
+                        . $this->{'_id'}
+                        . ") Received undefined role. No Role added to RADIUS Access-Accept" );
+            }
+        }
+        else {
+            # RETURN A VLAN ID
+            if ( ( !$wasInline || ( $wasInline && $vlan ne 0 ) ) && isenabled( $this->{_VlanMap} ) ) {
+                $radius_reply_ref = {
+                    'Tunnel-Private-Group-ID' => $vlan,
+                    'Tunnel-Medium-Type'      => $RADIUS::ETHERNET,
+                    'Tunnel-Type'             => $RADIUS::VLAN,
                 };
             }
             else {
-                my (%session_id);
-                pf::web::util::session(\%session_id,undef,6);
-                $session_id{client_mac} = $mac;
-                $session_id{wlan} = $ssid;
-                $session_id{switch_id} = $this->{_id};
-                $radius_reply_ref = {
-                    'User-Name' => $mac,
-                    'Cisco-AVPair' => ["url-redirect-acl=$role","url-redirect=".$this->{'_portalURL'}."/cep$session_id{_session_id}"],
-                };
-                if ( isenabled($self->{_AccessListMap}) && $self->supportsAccessListBasedEnforcement ){
-                    if( defined($user_role) && $user_role ne ""){
-                        my $access_list = $self->getAccessListByName($user_role);
-                        my @av_pairs;
-                        while($access_list =~ /([^\n]+)\n?/g){
-                            push(@av_pairs, $self->returnAccessListAttribute."=".$1);
-                            $logger->info("[$mac] (".$self->{'_id'}.") Adding access list : $1 to the RADIUS reply");
-                        } 
-                        $radius_reply_ref->{'Cisco-AVPair'} = \@av_pairs; 
-                        $logger->info("[$mac] (".$self->{'_id'}.") Added access lists to the RADIUS reply.");
-                    }
-                }
+                $logger->warn(
+                    "[$mac] (" . $this->{'_id'} . ") No Role or VLAN added to RADIUS Access-Accept" );
             }
-            $logger->info("[$mac] (".$this->{'_id'}.") Returning ACCEPT with Role: $role");
         }
+    }
+    # UNREGISTERED DEVICES
+    else {
+        my (%session_id);
+        pf::web::util::session( \%session_id, undef, 6 );
 
-
-        # if Roles aren't configured, return VLAN information
-        else {
-
-            $radius_reply_ref = {
-                'Tunnel-Medium-Type' => $RADIUS::ETHERNET,
-                'Tunnel-Type' => $RADIUS::VLAN,
-                'Tunnel-Private-Group-ID' => $vlan,
-            };
-
-            $logger->info("[$mac] (".$this->{'_id'}.") Returning ACCEPT with VLAN: $vlan");
-        }
+        my $acl
+            = isenabled( $this->{_AccessListMap} ) && $this->supportsAccessListBasedEnforcement ? 
+                $this->getAccessListByName($user_role)
+            : isenabled( $this->{_RoleMap} ) && $this->supportsRoleBasedEnforcement() ? 
+                $this->getRoleByName($user_role)
+            : $vlan;
+            #my $acl = $this->getAccessListByName($user_role) // $this->getRoleByName($user_role) // $vlan;
+        $session_id{client_mac} = $mac;
+        $session_id{wlan}       = $ssid;
+        $session_id{switch_id}  = $this->{_id};
+        $radius_reply_ref       = {
+            'User-Name'    => $mac,
+            'Cisco-AVPair' => [
+                "url-redirect-acl=$acl",
+                "url-redirect=" . $this->{'_portalURL'} . "/cep$session_id{_session_id}"
+            ],
+        };
+        $logger->info( "[$mac] (" . $this->{'_id'} . ") Adding access list : $acl to the RADIUS reply" );
 
     }
-    catch {
-        chomp($_);
-        $logger->debug(
-            "Exception when trying to resolve a Role for the node. Returning VLAN attributes in RADIUS Access-Accept. "
-            . "Exception: $_"
-        );
 
-        $radius_reply_ref = {
-            'Tunnel-Medium-Type' => $RADIUS::ETHERNET,
-            'Tunnel-Type' => $RADIUS::VLAN,
-            'Tunnel-Private-Group-ID' => $vlan,
-        };
-    };
-
-    return [$RADIUS::RLM_MODULE_OK, %$radius_reply_ref];
+    return [ $RADIUS::RLM_MODULE_OK, %$radius_reply_ref ];
 }
 
 =head2 radiusDisconnect
