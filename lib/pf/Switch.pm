@@ -1645,14 +1645,17 @@ sub getRegExpFromList {
 
 =item getBitAtPosition - returns the bit at the position specified
 
-The input must be the untranslated raw result of an snmp get_table
+The input must be the untranslated raw result of an snmp get_table.
+Returns either 0 or 1.
 
 =cut
 
 # TODO move out to a util package
 sub getBitAtPosition {
-   my ($this, $bitStream, $position) = @_;
-   return substr(unpack('B*', $bitStream), $position, 1);
+    my ( $this, $bitStream, $position ) = @_;
+    my $mask = 1 << $position;
+    my $bit  = $bitStream & $mask;
+    return $bit >> $position;
 }
 
 =item modifyBitmask

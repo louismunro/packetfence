@@ -141,6 +141,12 @@ $switch = pf::SwitchFactory->instantiate('10.0.0.9');
 is($switch->getRoleByName('admin'), undef, 'roles not configured expecting undef (not cached)');
 is($switch->getRoleByName('admin'), undef, 'roles not configured expecting undef (from cache)');
 
+# 0x8 is 1000
+is($switch->getBitAtPosition(0x8, 3), 1, 'getBitAtPosition returns correct bit set to 1');
+
+# 0x8 is 1000
+is($switch->getBitAtPosition(0x8, 2), 0, 'getBitAtPosition returns correct bit set to 0');
+
 =head1 AUTHOR
 
 Inverse inc. <info@inverse.ca>
