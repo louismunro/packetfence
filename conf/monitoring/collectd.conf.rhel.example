@@ -59,6 +59,7 @@ LoadPlugin memory
 LoadPlugin mysql
 LoadPlugin unixsock
 LoadPlugin write_graphite
+LoadPlugin exec
 
 ##############################################################################
 # Plugin configuration                                                       #
@@ -110,4 +111,8 @@ LoadPlugin write_graphite
     AlwaysAppendDS false
     EscapeCharacter "_"
   </Node>
+</Plugin>
+
+<Plugin exec>
+    Exec pf "/usr/local/pf/addons/exec-redis.sh"
 </Plugin>
