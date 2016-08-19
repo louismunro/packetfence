@@ -97,6 +97,10 @@ EOT
             $tags{'http'} .= <<"EOT";
 frontend portal-http-mgmt
         bind $cluster_ip:80
+        acl status_page path_beg /status
+        acl device_page path_beg /device-registration
+        http-request redirect scheme https if status_page
+        http-request redirect scheme https if device_page
         reqadd X-Forwarded-Proto:\\ http
         default_backend portal-mgmt-backend
 
@@ -127,6 +131,10 @@ EOT
             $tags{'http'} .= <<"EOT";
 frontend portal-http-$cluster_ip
         bind $cluster_ip:80
+        acl status_page path_beg /status
+        acl device_page path_beg /device-registration
+        http-request redirect scheme https if status_page
+        http-request redirect scheme https if device_page
         reqadd X-Forwarded-Proto:\\ http
         default_backend $cluster_ip-backend
 
