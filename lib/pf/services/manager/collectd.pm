@@ -19,6 +19,7 @@ use pf::file_paths qw(
     $install_dir
     $conf_dir
     $log_dir
+    $var_dir
 );
 use pf::util;
 use pf::config qw(
@@ -41,38 +42,47 @@ has '+launcher' => (
     }
 );
 
+has configFilePath => (is => 'rw', builder => 1, lazy => 1);
+
+has configTemplateFilePath => (is => 'rw', builder => 1, lazy => 1);
+
 sub generateConfig {
-    generateCollectd();
-    generateTypes();
+    my ($self) = @_;
+    my $vars = $self->createVars();
+    my $tt = Template->new(ABSOLUTE => 1);
+    $tt->process($self->configTemplateFilePath, $vars, $self->configFilePath) or die $tt->error();
 }
 
-sub generateCollectd {
-    my %tags;
-    $tags{'template'}    = "$conf_dir/monitoring/collectd.conf.$OS";
-    $tags{'install_dir'} = "$install_dir";
-    $tags{'log_dir'}     = "$log_dir";
-    $tags{'management_ip'}
+sub createVars {
+    my ($self) = @_;
+    my %vars;
+    $vars{'OS'} = $OS;
+    $vars{'install_dir'} = "$install_dir";
+    $vars{'log_dir'}     = "$log_dir";
+    $vars{'management_ip'}
         = defined( $management_network->tag('vip') )
         ? $management_network->tag('vip')
         : $management_network->tag('ip');
-    $tags{'graphite_host'} = "$Config{'monitoring'}{'graphite_host'}";
-    $tags{'graphite_port'} = "$Config{'monitoring'}{'graphite_port'}";
-    $tags{'hostname'}      = hostname;
-    $tags{'db_host'}       = "$Config{'database'}{'host'}";
-    $tags{'db_username'}   = "$Config{'database'}{'user'}";
-    $tags{'db_password'}   = "$Config{'database'}{'pass'}";
-    $tags{'db_database'}   = "$Config{'database'}{'db'}";
-    $tags{'httpd_portal_modstatus_port'} = "$Config{'ports'}{'httpd_portal_modstatus'}";
+    $vars{'graphite_host'} = "$Config{'monitoring'}{'graphite_host'}";
+    $vars{'graphite_port'} = "$Config{'monitoring'}{'graphite_port'}";
+    $vars{'hostname'}      = hostname;
+    $vars{'db_host'}       = "$Config{'database'}{'host'}";
+    $vars{'db_username'}   = "$Config{'database'}{'user'}";
+    $vars{'db_password'}   = "$Config{'database'}{'pass'}";
+    $vars{'db_database'}   = "$Config{'database'}{'db'}";
+    $vars{'httpd_portal_modstatus_port'} = "$Config{'ports'}{'httpd_portal_modstatus'}";
 
-    parse_template( \%tags, "$tags{'template'}", "$install_dir/var/conf/collectd.conf" );
+    return \%vars;
 }
 
-sub generateTypes {
-    my %tags;
-    $tags{'template'}    = "$conf_dir/monitoring/types.db";
-    $tags{'install_dir'} = "$install_dir";
+sub _build_configFilePath {
+    my ($self) = @_;
+    return "$var_dir/conf/" . $self->name . ".conf";
+}
 
-    parse_template( \%tags, "$tags{'template'}", "$install_dir/var/conf/types.db" );
+sub _build_configTemplateFilePath {
+    my ($self) = @_;
+    return "$conf_dir/monitoring/" . $self->name . ".tt";
 }
 
 1;
