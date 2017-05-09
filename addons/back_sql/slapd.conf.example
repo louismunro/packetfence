@@ -1,0 +1,41 @@
+# $OpenLDAP$
+#
+# See slapd.conf(5) for details on configuration options.
+# This file should NOT be world readable.
+#
+include		/etc/openldap/schema/core.schema
+include		/etc/openldap/schema/cosine.schema
+include		/etc/openldap/schema/inetorgperson.schema
+
+include /etc/openldap/schema/collective.schema
+include /etc/openldap/schema/misc.schema
+include /etc/openldap/schema/nis.schema
+include /etc/openldap/schema/openldap.schema
+include /etc/openldap/schema/packetfence.schema
+
+# Define global ACLs to disable default read access.
+
+# Do not enable referrals until AFTER you have a working directory
+# service AND an understanding of referrals.
+#referral	ldap://root.openldap.org
+
+pidfile		/var/run/openldap/slapd.pid
+argsfile	/var/run/openldap/slapd.args
+moduleload  back_sql.la
+defaultsearchbase       dc=unibas,dc=ch
+
+allow bind_v2
+#######################################################################
+# sql database definitions
+#######################################################################
+
+database	sql
+suffix		"dc=unibas,dc=ch"
+rootdn		"cn=root,dc=unibas,dc=ch"
+rootpw		{SHA}C8HWp8E/8qmKn0iufAMq9BRUDFA=
+dbname		MySQL
+#dbuser		pf
+#dbpasswd	PFtestDB
+subtree_cond	"ldap_entries.dn LIKE CONCAT('%',?)"
+insentry_stmt	"INSERT INTO ldap_entries (dn,oc_map_id,parent,keyval) VALUES (?,?,?,?)"
+has_ldapinfo_dn_ru	no

@@ -1,0 +1,23 @@
+# objectclass ( 1.3.6.1.4.1.29464.1024.1.1 NAME 'endpoint'
+# 	DESC 'A PacketFence endpoit device.'
+# 	SUP top
+# 	STRUCTURAL
+# 	MUST ( host $ ipHostNumber $ macAddress $ memberOf ) )
+# 
+attributetype ( 1.3.6.1.4.1.29464.1024.1.2.1 NAME ( 'memberOf' )
+	DESC 'A PacketFence role for an endpoint. This attribute provides a "memberOf" attribute for Active-Directory compatibility.'
+	SUP name
+	SINGLE-VALUE
+	USAGE userApplications )
+
+attributetype ( 1.3.6.1.4.1.29464.1024.1.2.2 NAME ( 'sAMAccountName' )
+	DESC 'A PacketFence name for an endpoint. This attribute provides a "sAMAccountName" attribute for Active-Directory compatibility.'
+	SUP name
+	SINGLE-VALUE
+	USAGE userApplications )
+
+objectclass ( 1.2.840.113556.1.5.9 NAME 'user'
+        DESC 'a user'
+        SUP organizationalPerson STRUCTURAL
+	    MUST ( cn $ host $ ipHostNumber $ macAddress ) 
+        MAY  ( userPassword $ memberOf $ sAMAccountName ))
